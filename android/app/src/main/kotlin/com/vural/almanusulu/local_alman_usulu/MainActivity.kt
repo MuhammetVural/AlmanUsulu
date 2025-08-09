@@ -1,4 +1,4 @@
-package com.vural.almanusulu.local_alman_usulu
+package com.vural.almanusulu
 
 import io.flutter.embedding.android.FlutterActivity
 
