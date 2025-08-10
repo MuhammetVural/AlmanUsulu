@@ -29,10 +29,30 @@ class ExpenseRepo {
       return expenseId;
     });
   }
+  Future<void> softDeleteExpense(int expenseId) async {
+    final db = await _db;
+    final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+
+    await db.update(
+      'expenses',
+      {'deleted_at': nowSec},
+      where: 'id = ?',
+      whereArgs: [expenseId],
+    );
+  }
+  Future<void> undoDeleteExpense(int id) async {
+    final db = await _db;
+    await db.update(
+      'expenses',
+      {'deleted_at': null},
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
 
   Future<List<Map<String, dynamic>>> listExpenses(int groupId) async {
     final db = await _db;
-    return db.query('expenses', where: 'group_id = ?', whereArgs: [groupId], orderBy: 'created_at DESC');
+    return db.query('expenses', where: 'group_id = ? AND deleted_at IS NULL', whereArgs: [groupId], orderBy: 'created_at DESC');
   }
 
   Future<List<Map<String, dynamic>>> listParticipants(int expenseId) async {
@@ -48,5 +68,25 @@ class ExpenseRepo {
       where: 'id = ? AND deleted_at IS NULL',
       whereArgs: [expenseId],
     );
+  }
+  Future<void> updateExpense(int id, {required String title, required double amount}) async {
+    final db = await _db;
+    await db.update(
+      'expenses',
+      {
+        'title': title,
+        'amount': amount,
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
+  Future<bool> hasActiveExpenses(int groupId) async {
+    final db = await _db;
+    final rows = await db.rawQuery(
+      'SELECT 1 FROM expenses WHERE group_id = ? AND deleted_at IS NULL LIMIT 1',
+      [groupId],
+    );
+    return rows.isNotEmpty;
   }
 }
