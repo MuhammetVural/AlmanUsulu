@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../app/providers.dart';
 import 'group_detail_page.dart';
 
@@ -26,10 +27,10 @@ class HomePage extends ConsumerWidget {
               // created_at veritabanında UNIX saniyesi, DateTime ms bekliyor → ×1000
               final createdAtSec = g['created_at'] as int;
               final createdAt = DateTime.fromMillisecondsSinceEpoch(createdAtSec * 1000).toLocal();
-
+              final formattedDate = DateFormat('dd-MM-yyyy | HH:mm').format(createdAt);
               return ListTile(
                 title: Text(g['name'] as String),
-                subtitle: Text(createdAt.toString()), // istersen intl ile biçimlendirebiliriz
+                subtitle: Text(formattedDate.toString()), // istersen intl ile biçimlendirebiliriz
                 trailing: IconButton(
                   icon: const Icon(Icons.delete_outline),
                   // HomePage ListTile.trailing (çöp kutusu ikonunun onPressed'i)

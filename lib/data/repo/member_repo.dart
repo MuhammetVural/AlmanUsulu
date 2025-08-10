@@ -6,7 +6,7 @@ class MemberRepo {
 
   Future<int> addMember(int groupId, String name) async {
     final db = await _db;
-    return db.insert('members', {'group_id': groupId, 'name': name.trim()});
+    return db.insert('members', {'group_id': groupId, 'name': name.trim(), });
   }
 
   Future<List<Map<String, dynamic>>> listMembers(int groupId) async {

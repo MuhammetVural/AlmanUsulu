@@ -1,6 +1,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../app/providers.dart';
 
@@ -58,9 +59,10 @@ class GroupDetailPage extends ConsumerWidget {
                   : Column(
                 children: rows.map((e) {
                   final ts = DateTime.fromMillisecondsSinceEpoch((e['created_at'] as int) * 1000).toLocal();
+                  final formattedDate = DateFormat('dd-MM-yyyy | HH:mm').format(ts);
                   return ListTile(
                     title: Text(e['title']?.toString() ?? '(Başlıksız)'),
-                    subtitle: Text('$ts'),
+                    subtitle: Text(formattedDate.toString()),
                     trailing: Text((e['amount'] as num).toStringAsFixed(2)),
                   );
                 }).toList(),
