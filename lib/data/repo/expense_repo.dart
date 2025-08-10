@@ -39,4 +39,14 @@ class ExpenseRepo {
     final db = await _db;
     return db.query('expense_participants', where: 'expense_id = ?', whereArgs: [expenseId]);
   }
+  Future<void> updateExpenseTitle(int expenseId, String? title) async {
+    final db = await _db;
+    final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    await db.update(
+      'expenses',
+      {'title': title, 'updated_at': nowSec},
+      where: 'id = ? AND deleted_at IS NULL',
+      whereArgs: [expenseId],
+    );
+  }
 }

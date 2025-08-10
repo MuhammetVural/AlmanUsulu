@@ -33,6 +33,19 @@ class GroupRepo {
       whereArgs: [id],
     );
   }
+  Future<void> updateGroupName(int id, String name) async {
+    final db = await _db;
+    final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    await db.update(
+      'groups',
+      {
+        'name': name.trim(),
+        'updated_at': nowSec, // şemanda varsa doldurur
+      },
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+  }
 
 // Soft delete geri al (deleted_at kolonunu null yapar)
   Future<void> undoDeleteGroup(int id) async {
