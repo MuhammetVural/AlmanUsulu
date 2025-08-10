@@ -18,7 +18,7 @@ class ExpenseRepo {
         'title': title.trim().isEmpty ? null : title.trim(),
         'amount': amount,
         'payer_id': payerId,
-        'created_at': DateTime.now().millisecondsSinceEpoch,
+        'created_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
       });
       for (final mid in participantIds) {
         await txn.insert('expense_participants', {

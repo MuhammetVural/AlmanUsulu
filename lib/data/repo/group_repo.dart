@@ -8,7 +8,7 @@ class GroupRepo {
     final db = await _db;
     return db.insert('groups', {
       'name': name.trim(),
-      'created_at': DateTime.now().hour,
+      'created_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
     });
   }
 
@@ -25,7 +25,7 @@ class GroupRepo {
   // DB'de soft delete (deleted_at kolonunu doldurur)
   Future<void> softDeleteGroup(int id) async {
     final db = await _db;
-    final nowSec = DateTime.now().hour;
+    final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
     await db.update(
       'groups',
       {'deleted_at': nowSec},
