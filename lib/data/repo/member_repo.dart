@@ -4,9 +4,14 @@ import '../../data/db/database_provider.dart';
 class MemberRepo {
   final Future<Database> _db = AppDatabase.instance.db;
 
+  // MemberRepo içinde
   Future<int> addMember(int groupId, String name) async {
     final db = await _db;
-    return db.insert('members', {'group_id': groupId, 'name': name.trim(), });
+    return db.insert('members', {
+      'group_id': groupId,
+      'name': name.trim(),
+      'is_active': 1,
+    });
   }
 
   Future<List<Map<String, dynamic>>> listMembers(int groupId) async {
@@ -28,5 +33,64 @@ class MemberRepo {
       where: 'id = ? AND deleted_at IS NULL',
       whereArgs: [memberId],
     );
+  }
+  Future<void> includeMemberInPastExpenses(int groupId, int memberId) async {
+    final db = await _db;
+
+    // Grup içindeki tüm harcamaları bul
+    final expenses = await db.query(
+      'expenses',
+      where: 'group_id = ? AND deleted_at IS NULL',
+      whereArgs: [groupId],
+    );
+
+    for (final expense in expenses) {
+      final expenseId = expense['id'] as int;
+
+      // Daha önce bu harcamada var mı kontrol et
+      final existing = await db.query(
+        'expense_participants',
+        where: 'expense_id = ? AND member_id = ?',
+        whereArgs: [expenseId, memberId],
+      );
+
+      if (existing.isEmpty) {
+        await db.insert('expense_participants', {
+          'expense_id': expenseId,
+          'member_id': memberId,
+        });
+      }
+    }
+  }
+  Future<void> includeMemberInPastExpensesFast(int groupId, int memberId) async {
+    final db = await _db;
+
+    await db.transaction((txn) async {
+      // 1) Soft-deleted kayıtları canlandır
+      await txn.rawUpdate('''
+      UPDATE expense_participants
+         SET deleted_at = NULL
+       WHERE member_id = ?
+         AND deleted_at IS NOT NULL
+         AND expense_id IN (
+              SELECT id FROM expenses
+               WHERE group_id = ? AND deleted_at IS NULL
+         )
+    ''', [memberId, groupId]);
+
+      // 2) Eksik olanları ekle
+      await txn.rawInsert('''
+      INSERT INTO expense_participants (expense_id, member_id)
+      SELECT e.id, ?
+        FROM expenses e
+       WHERE e.group_id = ? AND e.deleted_at IS NULL
+         AND NOT EXISTS (
+               SELECT 1 FROM expense_participants p
+                WHERE p.expense_id = e.id
+                  AND p.member_id = ?
+                  AND p.deleted_at IS NULL
+         )
+    ''', [memberId, groupId, memberId]);
+    });
   }
 }
