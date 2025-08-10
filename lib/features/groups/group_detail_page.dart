@@ -1,5 +1,7 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 
 import '../../app/providers.dart';
 
@@ -40,7 +42,34 @@ class GroupDetailPage extends ConsumerWidget {
                     final sign = amount >= 0 ? '+' : '';
                     return ListTile(
                       dense: true,
-                      title: Text(member['name'] as String),
+                      title: Row(
+                        children: [
+                          Text(member['name'] as String),
+                          IconButton(
+                            icon: const Icon(Icons.edit_outlined),
+                            tooltip: 'Adı düzenle',
+                            onPressed: (member['id'] == null) ? null : () async {
+                              final currentName = (member['name'] as String?) ?? '';
+                              final ctrl = TextEditingController(text: currentName);
+                              final newName = await showDialog<String>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('Üye adını düzenle'),
+                                  content: TextField(controller: ctrl, autofocus: true),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Vazgeç')),
+                                    FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Kaydet')),
+                                  ],
+                                ),
+                              );
+                              if (newName == null || newName.isEmpty || newName == currentName) return;
+
+                              await ref.read(memberRepoProvider).updateMemberName(member['id'] as int, newName);
+                              ref.invalidate(membersProvider(groupId)); // isimler tazelensin
+                            },
+                          ),
+                        ],
+                      ),
                       trailing: Text('$sign${amount.toStringAsFixed(2)}'),
                     );
                   }).toList(),
@@ -56,11 +85,57 @@ class GroupDetailPage extends ConsumerWidget {
                   ? const ListTile(title: Text('Henüz harcama yok'))
                   : Column(
                 children: rows.map((e) {
-                  final ts = DateTime.fromMillisecondsSinceEpoch(e['created_at'] as int);
+                  final ts = DateTime.fromMillisecondsSinceEpoch((e['created_at'] as int) * 1000).toLocal();
+                  final formattedDate = DateFormat('dd-MM-yyyy | HH:mm').format(ts);
+                  final amountText = (e['amount'] as num).toStringAsFixed(2);
                   return ListTile(
-                    title: Text(e['title']?.toString() ?? '(Başlıksız)'),
-                    subtitle: Text('${ts.toLocal()}'),
-                    trailing: Text((e['amount'] as num).toStringAsFixed(2)),
+                    title: Row(
+                      children: [
+                        Text(e['title']?.toString() ?? '(Başlıksız)'),
+                        IconButton(
+                          icon: const Icon(Icons.edit_outlined),
+                          tooltip: 'Başlığı düzenle',
+                          onPressed: () async {
+                            final currentTitle = e['title']?.toString() ?? '';
+                            final ctrl = TextEditingController(text: currentTitle);
+
+                            final newTitle = await showDialog<String>(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Harcama başlığını düzenle'),
+                                content: TextField(
+                                  controller: ctrl,
+                                  autofocus: true,
+                                  decoration: const InputDecoration(hintText: 'Yeni başlık (opsiyonel)'),
+                                ),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Vazgeç')),
+                                  FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Kaydet')),
+                                ],
+                              ),
+                            );
+
+                            if (newTitle == null) return; // iptal
+                            if (newTitle == currentTitle) return; // değişmedi
+
+                            // boş stringi null’a çevir (UI'da "(Başlıksız)" gösteriyorsun)
+                            final normalized = newTitle.isEmpty ? null : newTitle;
+                            await ref.read(expenseRepoProvider).updateExpenseTitle(e['id'] as int, normalized);
+
+                            // listeyi tazele
+                            ref.invalidate(expensesProvider(groupId));
+
+                            if (context.mounted) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Harcama güncellendi')),
+                              );
+                            }
+                          },
+                        ),
+                      ],
+                    ),
+                    subtitle: Text(formattedDate),
+                    trailing: Text(amountText),
                   );
                 }).toList(),
               ),

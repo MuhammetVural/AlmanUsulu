@@ -18,7 +18,7 @@ class ExpenseRepo {
         'title': title.trim().isEmpty ? null : title.trim(),
         'amount': amount,
         'payer_id': payerId,
-        'created_at': DateTime.now().millisecondsSinceEpoch,
+        'created_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
       });
       for (final mid in participantIds) {
         await txn.insert('expense_participants', {
@@ -38,5 +38,15 @@ class ExpenseRepo {
   Future<List<Map<String, dynamic>>> listParticipants(int expenseId) async {
     final db = await _db;
     return db.query('expense_participants', where: 'expense_id = ?', whereArgs: [expenseId]);
+  }
+  Future<void> updateExpenseTitle(int expenseId, String? title) async {
+    final db = await _db;
+    final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    await db.update(
+      'expenses',
+      {'title': title, 'updated_at': nowSec},
+      where: 'id = ? AND deleted_at IS NULL',
+      whereArgs: [expenseId],
+    );
   }
 }
