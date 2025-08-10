@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -56,10 +57,10 @@ class GroupDetailPage extends ConsumerWidget {
                   ? const ListTile(title: Text('Henüz harcama yok'))
                   : Column(
                 children: rows.map((e) {
-                  final ts = DateTime.fromMillisecondsSinceEpoch(e['created_at'] as int);
+                  final ts = DateTime.fromMillisecondsSinceEpoch((e['created_at'] as int) * 1000).toLocal();
                   return ListTile(
                     title: Text(e['title']?.toString() ?? '(Başlıksız)'),
-                    subtitle: Text('${ts.toLocal()}'),
+                    subtitle: Text('$ts'),
                     trailing: Text((e['amount'] as num).toStringAsFixed(2)),
                   );
                 }).toList(),
