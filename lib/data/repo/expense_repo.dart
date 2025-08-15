@@ -57,7 +57,7 @@ class ExpenseRepo {
 
   Future<List<Map<String, dynamic>>> listParticipants(int expenseId) async {
     final db = await _db;
-    return db.query('expense_participants', where: 'expense_id = ?', whereArgs: [expenseId]);
+    return db.query('expense_participants', where: 'expense_id = ? AND deleted_at IS NULL', whereArgs: [expenseId]);
   }
   Future<void> updateExpenseTitle(int expenseId, String? title) async {
     final db = await _db;

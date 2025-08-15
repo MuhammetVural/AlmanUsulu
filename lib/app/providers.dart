@@ -1,9 +1,14 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sqflite/sqflite.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/db/database_provider.dart';
 import '../data/repo/group_repo.dart';
 import '../data/repo/member_repo.dart';
 import '../data/repo/expense_repo.dart';
+
+final supabaseClientProvider = Provider<SupabaseClient>((ref) {
+  return Supabase.instance.client;
+});
 
 final databaseProvider = FutureProvider<Database>((ref) async {
   return AppDatabase.instance.db;
