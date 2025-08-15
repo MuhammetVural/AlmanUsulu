@@ -68,6 +68,56 @@ class GroupDetailPage extends ConsumerWidget {
                               ref.invalidate(membersProvider(groupId)); // isimler tazelensin
                             },
                           ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () async {
+                              final confirmed = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('Silinsin mi?'),
+                                  content: const Text('Bu üyeyi silmek istediğinize emin misiniz?'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx, false),
+                                      child: const Text('Vazgeç'),
+                                    ),
+                                    FilledButton(
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      child: const Text('Sil'),
+                                    ),
+                                  ],
+                                ),
+                              );
+
+                              if (confirmed != true) return;
+
+                              // Soft delete + katılımcı kayıtlarını sil
+                              final memberId = member['id'];
+                              await ref.read(memberRepoProvider).softDeleteMember( groupId, memberId);
+
+                              // Listeyi yenile
+                              ref.invalidate(membersProvider(groupId));
+                              ref.invalidate(expensesProvider(groupId));
+                              ref.invalidate(balancesProvider(groupId));
+
+                              // Geri al için snackbar
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text('Üye silindi'),
+                                  action: SnackBarAction(
+                                    label: 'GERİ AL',
+                                    onPressed: () async {
+                                      await ref.read(memberRepoProvider).undoDeleteMember(memberId, groupId);
+                                      await ref.read(memberRepoProvider)
+                                          .undoDeleteMember(memberId, groupId);
+                                      ref.invalidate(membersProvider(groupId));
+                                      ref.invalidate(balancesProvider(groupId));
+                                    },
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ],
                       ),
                       trailing: Text('$sign${amount.toStringAsFixed(2)}'),
