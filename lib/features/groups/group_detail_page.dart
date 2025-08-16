@@ -130,14 +130,21 @@ class GroupDetailPage extends ConsumerWidget {
             ),
             const Divider(),
             const ListTile(title: Text('Harcamalar')),
+
             expensesAsync.when(
               data: (rows) => rows.isEmpty
                   ? const ListTile(title: Text('Henüz harcama yok'))
                   : Column(
                 children: rows.map((e) {
+                  final members = membersAsync.asData?.value ?? [];
                   final ts = DateTime.fromMillisecondsSinceEpoch((e['created_at'] as int) * 1000).toLocal();
                   final formattedDate = DateFormat('dd-MM-yyyy | HH:mm').format(ts);
                   final amountText = (e['amount'] as num).toStringAsFixed(2);
+                  final payerId = e['payer_id'] as int;
+                  final payerName = (members.firstWhere(
+                        (m) => m['id'] == payerId,
+                    orElse: () => {'name': 'Üye #$payerId'},
+                  )['name'] as String);
                   return ListTile(
                     title: Row(
                       children: [
@@ -242,7 +249,7 @@ class GroupDetailPage extends ConsumerWidget {
                         ),
                       ],
                     ),
-                    subtitle: Text(formattedDate),
+                    subtitle: Text('$payerName ödedi • $formattedDate'),
                     trailing: Text(amountText),
                   );
                 }).toList(),
