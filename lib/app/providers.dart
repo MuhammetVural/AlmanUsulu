@@ -24,17 +24,32 @@ final groupsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
 });
 
 final membersProvider = FutureProvider.family<List<Map<String, dynamic>>, int>((ref, groupId) async {
-  final repo = ref.read(memberRepoProvider);
-  return repo.listMembers(groupId);
+  final client = ref.read(supabaseClientProvider);
+  final res = await client
+      .from('members')
+      .select()
+      .eq('group_id', groupId)
+      .isFilter('deleted_at', null);
+
+  return (res as List).cast<Map<String, dynamic>>();
 });
 
 final expensesProvider = FutureProvider.family<List<Map<String, dynamic>>, int>((ref, groupId) async {
-  final repo = ref.read(expenseRepoProvider);
-  return repo.listExpenses(groupId);
+  final client = ref.read(supabaseClientProvider);
+  final res = await client
+      .from('expenses')
+      .select()
+      .eq('group_id', groupId)
+      .isFilter('deleted_at', null);
+
+  return (res as List).cast<Map<String, dynamic>>();
 });
 
 /// Basit bakiye hesaplayıcı (eşit bölüşme)
 final balancesProvider = FutureProvider.family<Map<int, double>, int>((ref, groupId) async {
+
+  final repo = ref.watch(expenseRepoProvider);
+
   final members = await ref.watch(membersProvider(groupId).future);
   final expenses = await ref.watch(expensesProvider(groupId).future);
   final expenseRepo = ref.read(expenseRepoProvider);

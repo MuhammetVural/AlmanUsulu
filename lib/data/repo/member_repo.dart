@@ -1,117 +1,111 @@
 import 'package:sqflite/sqflite.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/db/database_provider.dart';
 
 class MemberRepo {
-  final Future<Database> _db = AppDatabase.instance.db;
+  final SupabaseClient _client = Supabase.instance.client;
 
   // MemberRepo içinde
   Future<int> addMember(int groupId, String name) async {
-    final db = await _db;
-    return db.insert('members', {
+    final inserted = await _client.from('members').insert({
       'group_id': groupId,
       'name': name.trim(),
       'is_active': 1,
-    });
+      'created_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
+    })
+        .select('id')
+        .single();
+    return (inserted['id'] as num).toInt();
   }
 
   Future<List<Map<String, dynamic>>> listMembers(int groupId) async {
-    final db = await _db;
-    return db.query('members', where: 'group_id = ? AND deleted_at IS NULL', whereArgs: [groupId], orderBy: 'id DESC');
+    final rows = await _client.from('members').select('*').eq('group_id', groupId).isFilter('deleted_at', null).order('id', ascending: false);
+    return List<Map<String, dynamic>>.from(rows);
+
   }
 
   Future<int> deleteMember(int id) async {
-    final db = await _db;
-    return db.delete('members', where: 'id = ?', whereArgs: [id]);
+    final res = await _client.from('members').delete().eq('id', id);
+    return res.count ?? 0;
   }
   // Üyeyi sil: members.deleted_at = now
 // + Bu üyenin, bu gruptaki TÜM AKTİF harcamalardaki katılımını pasifleştir (expense_participants.deleted_at = now)
   Future<void> softDeleteMember(int groupId, int memberId) async {
-    final db = await _db; // kendi erişimin
     final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
-    await db.transaction((txn) async {
-      // 1) Üyenin kendisini soft-delete
-      await txn.update(
-        'members',
-        {'deleted_at': nowSec, 'is_active': 0, 'updated_at': nowSec},
-        where: 'id = ? AND deleted_at IS NULL',
-        whereArgs: [memberId],
-      );
+    // Transaction yok → iki ayrı update yapıyoruz
+    await _client
+        .from('members')
+        .update({'deleted_at': nowSec, 'is_active': 0, 'updated_at': nowSec})
+        .eq('id', memberId);
 
-      // 2) Bu gruptaki AKTİF harcamalarda katılımını pasifleştir
-      await txn.rawUpdate('''
-      UPDATE expense_participants
-         SET deleted_at = ?
-       WHERE member_id = ?
-         AND deleted_at IS NULL
-         AND expense_id IN (
-              SELECT id FROM expenses
-               WHERE group_id = ? AND deleted_at IS NULL
-         )
-    ''', [nowSec, memberId, groupId]);
-    });
+    await _client
+        .from('expense_participants')
+        .update({'deleted_at': nowSec})
+        .eq('member_id', memberId)
+        .inFilter(
+      'expense_id',
+      (await _client
+          .from('expenses')
+          .select('id')
+          .eq('group_id', groupId)
+          .isFilter('deleted_at', null)) // aktif harcamalar
+          .map((e) => e['id'])
+          .toList(),
+    );
   }
   // Üyeyi geri al: members.deleted_at = NULL, is_active = 1
 // + Bu üyenin, bu gruptaki AKTİF harcamalardaki katılımını da geri getir (expense_participants.deleted_at = NULL)
   Future<void> undoDeleteMember(int groupId, int memberId) async {
-    final db = await _db;
     final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
 
-    await db.transaction((txn) async {
-      // 1) Üyeyi geri al
-      await txn.update(
-        'members',
-        {'deleted_at': null, 'is_active': 1, 'updated_at': nowSec},
-        where: 'id = ? AND deleted_at IS NOT NULL',
-        whereArgs: [memberId],
-      );
+    await _client
+        .from('members')
+        .update({'deleted_at': null, 'is_active': 1, 'updated_at': nowSec})
+        .eq('id', memberId);
 
-      // 2) Bu gruptaki AKTİF harcamalarda katılımını geri getir
-      await txn.rawUpdate('''
-      UPDATE expense_participants
-         SET deleted_at = NULL
-       WHERE member_id = ?
-         AND deleted_at IS NOT NULL
-         AND expense_id IN (
-              SELECT id FROM expenses
-               WHERE group_id = ? AND deleted_at IS NULL
-         )
-    ''', [memberId, groupId]);
-    });
+    await _client
+        .from('expense_participants')
+        .update({'deleted_at': null})
+        .eq('member_id', memberId)
+        .inFilter(
+      'expense_id',
+      (await _client
+          .from('expenses')
+          .select('id')
+          .eq('group_id', groupId)
+          .isFilter('deleted_at', null))
+          .map((e) => e['id'])
+          .toList(),
+    );
   }
 
   Future<void> updateMemberName(int memberId, String name) async {
-    final db = await _db; // senin MemberRepo’daki DB erişimin
     final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    await db.update(
-      'members',
-      {'name': name.trim(), 'updated_at': nowSec},
-      where: 'id = ? AND deleted_at IS NULL',
-      whereArgs: [memberId],
-    );
+    await _client
+        .from('members')
+        .update({'name': name.trim(), 'updated_at': nowSec})
+        .eq('id', memberId)
+        .isFilter('deleted_at', null);
   }
   Future<void> includeMemberInPastExpenses(int groupId, int memberId) async {
-    final db = await _db;
-
-    // Grup içindeki tüm harcamaları bul
-    final expenses = await db.query(
-      'expenses',
-      where: 'group_id = ? AND deleted_at IS NULL',
-      whereArgs: [groupId],
-    );
+    final expenses = await _client
+        .from('expenses')
+        .select('id')
+        .eq('group_id', groupId)
+        .isFilter('deleted_at', null);
 
     for (final expense in expenses) {
       final expenseId = expense['id'] as int;
 
-      // Daha önce bu harcamada var mı kontrol et
-      final existing = await db.query(
-        'expense_participants',
-        where: 'expense_id = ? AND member_id = ?',
-        whereArgs: [expenseId, memberId],
-      );
+      final existing = await _client
+          .from('expense_participants')
+          .select('id')
+          .eq('expense_id', expenseId)
+          .eq('member_id', memberId);
 
       if (existing.isEmpty) {
-        await db.insert('expense_participants', {
+        await _client.from('expense_participants').insert({
           'expense_id': expenseId,
           'member_id': memberId,
         });
@@ -119,34 +113,45 @@ class MemberRepo {
     }
   }
   Future<void> includeMemberInPastExpensesFast(int groupId, int memberId) async {
-    final db = await _db;
+    // 1) Soft-deleted kayıtları geri getir
+    await _client
+        .from('expense_participants')
+        .update({'deleted_at': null})
+        .eq('member_id', memberId)
+        .inFilter(
+      'expense_id',
+      (await _client
+          .from('expenses')
+          .select('id')
+          .eq('group_id', groupId)
+          .isFilter('deleted_at', null))
+          .map((e) => e['id'])
+          .toList(),
+    );
 
-    await db.transaction((txn) async {
-      // 1) Soft-deleted kayıtları canlandır
-      await txn.rawUpdate('''
-      UPDATE expense_participants
-         SET deleted_at = NULL
-       WHERE member_id = ?
-         AND deleted_at IS NOT NULL
-         AND expense_id IN (
-              SELECT id FROM expenses
-               WHERE group_id = ? AND deleted_at IS NULL
-         )
-    ''', [memberId, groupId]);
+    // 2) Eksik olanları ekle (tek tek insert)
+    final expenses = await _client
+        .from('expenses')
+        .select('id')
+        .eq('group_id', groupId)
+        .isFilter('deleted_at', null);
 
-      // 2) Eksik olanları ekle
-      await txn.rawInsert('''
-      INSERT INTO expense_participants (expense_id, member_id)
-      SELECT e.id, ?
-        FROM expenses e
-       WHERE e.group_id = ? AND e.deleted_at IS NULL
-         AND NOT EXISTS (
-               SELECT 1 FROM expense_participants p
-                WHERE p.expense_id = e.id
-                  AND p.member_id = ?
-                  AND p.deleted_at IS NULL
-         )
-    ''', [memberId, groupId, memberId]);
-    });
+    for (final e in expenses) {
+      final expenseId = e['id'] as int;
+
+      final exists = await _client
+          .from('expense_participants')
+          .select('id')
+          .eq('expense_id', expenseId)
+          .eq('member_id', memberId)
+          .isFilter('deleted_at', null);
+
+      if (exists.isEmpty) {
+        await _client.from('expense_participants').insert({
+          'expense_id': expenseId,
+          'member_id': memberId,
+        });
+      }
+    }
   }
 }
