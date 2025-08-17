@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:local_alman_usulu/features/groups/app_drawer.dart';
 import '../../app/providers.dart';
+import '../../data/repo/auth_repo.dart';
 import 'group_detail_page.dart';
 
 class HomePage extends ConsumerWidget {
@@ -12,6 +14,7 @@ class HomePage extends ConsumerWidget {
     final groupsAsync = ref.watch(groupsProvider);
 
     return Scaffold(
+      drawer: AppDrawer(),
       appBar: AppBar(title: const Text('Gruplar')),
       body: groupsAsync.when(
         data: (rows) {
@@ -150,6 +153,9 @@ class HomePage extends ConsumerWidget {
         onPressed: () async {
           final name = await _askGroupName(context);
           if (name == null || name.trim().isEmpty) return;
+
+          // Ensure display name before group creation
+          await ensureDisplayName(context);
 
           // Grup oluştur
           await ref.read(groupRepoProvider).createGroup(name.trim());

@@ -153,3 +153,50 @@ Future<bool> ensureSignedIn(BuildContext context, {AuthRepo? repo}) async {
 
   return ok == true || r.isSignedIn;
 }
+
+Future<void> ensureDisplayName(BuildContext context) async {
+  final u = Supabase.instance.client.auth.currentUser;
+  if (u == null) return;
+
+  final current = (u.userMetadata?['name'] as String?)?.trim();
+  if (current != null && current.isNotEmpty) return;
+
+  final ctrl = TextEditingController(text: (u.email ?? '').split('@').first);
+  final name = await showDialog<String>(
+    context: context,
+    barrierDismissible: false,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Adını belirle'),
+      content: TextField(
+        controller: ctrl,
+        autofocus: true,
+        decoration: const InputDecoration(hintText: 'Örn: Ali Vural'),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Vazgeç')),
+        FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Kaydet')),
+      ],
+    ),
+  );
+
+  if (name == null || name.isEmpty) return;
+
+  try {
+    await Supabase.instance.client.auth.updateUser(
+      UserAttributes(data: {'name': name}),
+    );
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('İsmin kaydedildi.')),
+      );
+    }
+  } on AuthException catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+    }
+  } catch (e) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: $e')));
+    }
+  }
+}
