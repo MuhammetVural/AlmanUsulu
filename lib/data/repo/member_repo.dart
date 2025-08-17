@@ -1,6 +1,4 @@
-import 'package:sqflite/sqflite.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../data/db/database_provider.dart';
 
 class MemberRepo {
   final SupabaseClient _client = Supabase.instance.client;
