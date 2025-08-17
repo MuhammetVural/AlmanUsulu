@@ -68,6 +68,56 @@ class GroupDetailPage extends ConsumerWidget {
                               ref.invalidate(membersProvider(groupId)); // isimler tazelensin
                             },
                           ),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () async {
+                              final confirmed = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('Silinsin mi?'),
+                                  content: const Text('Bu üyeyi silmek istediğinize emin misiniz?'),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(ctx, false),
+                                      child: const Text('Vazgeç'),
+                                    ),
+                                    FilledButton(
+                                      onPressed: () => Navigator.pop(ctx, true),
+                                      child: const Text('Sil'),
+                                    ),
+                                  ],
+                                ),
+                              );
+
+                              if (confirmed != true) return;
+
+                              // Soft delete + katılımcı kayıtlarını sil
+                              final memberId = member['id'];
+                              await ref.read(memberRepoProvider).softDeleteMember( groupId, memberId);
+
+                              // Listeyi yenile
+                              ref.invalidate(membersProvider(groupId));
+                              ref.invalidate(expensesProvider(groupId));
+                              ref.invalidate(balancesProvider(groupId));
+
+                              // Geri al için snackbar
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: const Text('Üye silindi'),
+                                  action: SnackBarAction(
+                                    label: 'GERİ AL',
+                                    onPressed: () async {
+                                      await ref.read(memberRepoProvider).undoDeleteMember(memberId, groupId);
+                                      await ref.read(memberRepoProvider)
+                                          .undoDeleteMember(memberId, groupId);
+                                      ref.invalidate(membersProvider(groupId));
+                                      ref.invalidate(balancesProvider(groupId));
+                                    },
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
                         ],
                       ),
                       trailing: Text('$sign${amount.toStringAsFixed(2)}'),
@@ -80,14 +130,21 @@ class GroupDetailPage extends ConsumerWidget {
             ),
             const Divider(),
             const ListTile(title: Text('Harcamalar')),
+
             expensesAsync.when(
               data: (rows) => rows.isEmpty
                   ? const ListTile(title: Text('Henüz harcama yok'))
                   : Column(
                 children: rows.map((e) {
+                  final members = membersAsync.asData?.value ?? [];
                   final ts = DateTime.fromMillisecondsSinceEpoch((e['created_at'] as int) * 1000).toLocal();
                   final formattedDate = DateFormat('dd-MM-yyyy | HH:mm').format(ts);
                   final amountText = (e['amount'] as num).toStringAsFixed(2);
+                  final payerId = e['payer_id'] as int;
+                  final payerName = (members.firstWhere(
+                        (m) => m['id'] == payerId,
+                    orElse: () => {'name': 'Üye #$payerId'},
+                  )['name'] as String);
                   return ListTile(
                     title: Row(
                       children: [
@@ -95,46 +152,104 @@ class GroupDetailPage extends ConsumerWidget {
                         IconButton(
                           icon: const Icon(Icons.edit_outlined),
                           tooltip: 'Başlığı düzenle',
-                          onPressed: () async {
-                            final currentTitle = e['title']?.toString() ?? '';
-                            final ctrl = TextEditingController(text: currentTitle);
+                            onPressed: () async {
+                              final titleCtrl = TextEditingController(text: e['title']?.toString() ?? '');
+                              final amountCtrl = TextEditingController(text: (e['amount'] as num).toStringAsFixed(2));
 
-                            final newTitle = await showDialog<String>(
+                              final result = await showDialog<Map<String, dynamic>>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('Harcama Düzenle'),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      TextField(
+                                        controller: titleCtrl,
+                                        decoration: const InputDecoration(labelText: 'Başlık'),
+                                      ),
+                                      TextField(
+                                        controller: amountCtrl,
+                                        decoration: const InputDecoration(labelText: 'Tutar'),
+                                        keyboardType: TextInputType.numberWithOptions(decimal: true),
+                                      ),
+                                    ],
+                                  ),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Vazgeç')),
+                                    FilledButton(
+                                      onPressed: () {
+                                        final newTitle = titleCtrl.text.trim();
+                                        final newAmount = double.tryParse(amountCtrl.text.replaceAll(',', '.'));
+                                        if (newTitle.isNotEmpty && newAmount != null) {
+                                          Navigator.pop(ctx, {
+                                            'title': newTitle,
+                                            'amount': newAmount,
+                                          });
+                                        }
+                                      },
+                                      child: const Text('Kaydet'),
+                                    ),
+                                  ],
+                                ),
+                              );
+
+                              if (result != null) {
+                                await ref.read(expenseRepoProvider).updateExpense(
+                                  e['id'] as int,
+                                  title: result['title'],
+                                  amount: result['amount'],
+                                );
+                                ref.invalidate(expensesProvider(groupId));
+                                ref.invalidate(balancesProvider(groupId));
+                              }
+                            }
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline),
+                          onPressed: () async {
+                            final confirmed = await showDialog<bool>(
                               context: context,
                               builder: (ctx) => AlertDialog(
-                                title: const Text('Harcama başlığını düzenle'),
-                                content: TextField(
-                                  controller: ctrl,
-                                  autofocus: true,
-                                  decoration: const InputDecoration(hintText: 'Yeni başlık (opsiyonel)'),
-                                ),
+                                title: const Text('Silinsin mi?'),
+                                content: const Text('Bu harcama silinecek, emin misiniz?'),
                                 actions: [
-                                  TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Vazgeç')),
-                                  FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Kaydet')),
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(ctx, false),
+                                    child: const Text('Vazgeç'),
+                                  ),
+                                  FilledButton(
+                                    onPressed: () => Navigator.pop(ctx, true),
+                                    child: const Text('Sil'),
+                                  ),
                                 ],
                               ),
                             );
 
-                            if (newTitle == null) return; // iptal
-                            if (newTitle == currentTitle) return; // değişmedi
+                            if (confirmed == true) {
+                              await ref.read(expenseRepoProvider).softDeleteExpense(e['id'] as int);
+                              ref.invalidate(expensesProvider(groupId));
 
-                            // boş stringi null’a çevir (UI'da "(Başlıksız)" gösteriyorsun)
-                            final normalized = newTitle.isEmpty ? null : newTitle;
-                            await ref.read(expenseRepoProvider).updateExpenseTitle(e['id'] as int, normalized);
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(content: const Text('Harcama silindi'),
+                                    action: SnackBarAction(
+                                      label: 'Geri Al',
+                                      onPressed: () async{
+                                        await ref.read(expenseRepoProvider).undoDeleteExpense(e['id'] as int);
+                                        ref.invalidate(expensesProvider(groupId));
+                                        ref.invalidate(balancesProvider(groupId));
+                                      }
 
-                            // listeyi tazele
-                            ref.invalidate(expensesProvider(groupId));
-
-                            if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Harcama güncellendi')),
-                              );
+                                  ),
+                                  ),
+                                );
+                              }
                             }
                           },
                         ),
                       ],
                     ),
-                    subtitle: Text(formattedDate),
+                    subtitle: Text('$payerName ödedi • $formattedDate'),
                     trailing: Text(amountText),
                   );
                 }).toList(),
@@ -157,14 +272,59 @@ class _Fab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+
     return PopupMenuButton<String>(
       onSelected: (key) async {
         if (key == 'member') {
           final name = await _askText(context, 'Üye adı');
-          if (name != null && name.trim().isNotEmpty) {
-            await ref.read(memberRepoProvider).addMember(groupId, name.trim());
-            ref.invalidate(membersProvider(groupId));
+          if (name == null || name.trim().isEmpty) return;
+
+          // 1) Üyeyi ekle ve yeni üyenin id'sini al
+          final newMemberId = await ref.read(memberRepoProvider).addMember(groupId, name.trim());
+
+          // 2) Üye listesini hemen tazele
+          ref.invalidate(membersProvider(groupId));
+
+          // 3) Bu grupta aktif harcama var mı? Yoksa sorma
+          final hasExpenses = await ref.read(expenseRepoProvider).hasActiveExpenses(groupId);
+          if (!hasExpenses) {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Üye eklendi')),
+              );
+            }
+            return;
+          }
+
+          // 4) Varsa kullanıcıya sor
+          final includePast = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Bütçeye dahil edilsin mi?'),
+              content: const Text('Bu kişiyi geçmiş harcamalara katılımcı olarak ekleyelim mi?'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hayır')),
+                FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Evet')),
+              ],
+            ),
+          );
+
+          // 5) Evet ise geçmişe dahil et ve listeleri tazele
+          if (includePast == true) {
+            await ref.read(memberRepoProvider).includeMemberInPastExpensesFast(groupId, newMemberId);
+            ref.invalidate(expensesProvider(groupId));
             ref.invalidate(balancesProvider(groupId));
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Üye geçmiş harcamalara dahil edildi')),
+              );
+            }
+          } else {
+            if (context.mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Üye eklendi')),
+              );
+            }
           }
         } else if (key == 'expense') {
           await _addExpenseFlow(context, ref, groupId);

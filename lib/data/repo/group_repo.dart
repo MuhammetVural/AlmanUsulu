@@ -1,60 +1,55 @@
 import 'package:sqflite/sqflite.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/db/database_provider.dart';
 
 class GroupRepo {
-  final Future<Database> _db = AppDatabase.instance.db;
+  final SupabaseClient _client = Supabase.instance.client;
 
   Future<int> createGroup(String name) async {
-    final db = await _db;
-    return db.insert('groups', {
+    final inserted = await _client
+        .from('groups')
+        .insert({
       'name': name.trim(),
       'created_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
-    });
+    })
+        .select('id')
+        .single();
+    return (inserted['id'] as num).toInt();
   }
 
   Future<List<Map<String, dynamic>>> listGroups() async {
-    final db = await _db;
-    return db.query('groups', where: 'deleted_at IS NULL', orderBy: 'created_at DESC');
+    final rows = await _client
+        .from('groups')
+        .select('*')
+        .isFilter('deleted_at', null) // SDK’na göre .is_('deleted_at', null) da olabilir
+        .order('created_at', ascending: false);
+    return List<Map<String, dynamic>>.from(rows);
   }
 
   Future<int> deleteGroup(int id) async {
-    final db = await _db;
-    return db.delete('groups', where: 'id = ?', whereArgs: [id]);
+    final deleted = await _client
+        .from('groups')
+        .delete()
+        .eq('id', id)
+        .select('id');        // silinen satırları döndür
+    return (deleted as List).isNotEmpty ? 1 : 0;
   }
 
   // DB'de soft delete (deleted_at kolonunu doldurur)
   Future<void> softDeleteGroup(int id) async {
-    final db = await _db;
     final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    await db.update(
-      'groups',
-      {'deleted_at': nowSec},
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await _client.from('groups').update({'deleted_at': nowSec}).eq('id', id);
   }
   Future<void> updateGroupName(int id, String name) async {
-    final db = await _db;
     final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    await db.update(
-      'groups',
-      {
-        'name': name.trim(),
-        'updated_at': nowSec, // şemanda varsa doldurur
-      },
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await _client
+        .from('groups')
+        .update({'name': name.trim(), 'updated_at': nowSec})
+        .eq('id', id);
   }
 
 // Soft delete geri al (deleted_at kolonunu null yapar)
   Future<void> undoDeleteGroup(int id) async {
-    final db = await _db;
-    await db.update(
-      'groups',
-      {'deleted_at': null},
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await _client.from('groups').update({'deleted_at': null}).eq('id', id);
   }
 }

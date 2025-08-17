@@ -43,3 +43,7 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+android/app/release-key.keystore
+android/key.properties
+lib/env/env.dart
+
