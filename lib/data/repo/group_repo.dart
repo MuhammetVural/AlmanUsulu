@@ -35,7 +35,7 @@ class GroupRepo {
       'user_id': uid,
       'name': 'Ben',          // İstersen profil adınla değiştir
       'role': 'owner',
-      'is_active': true,
+      'is_active': 1,
       'created_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
     });
 

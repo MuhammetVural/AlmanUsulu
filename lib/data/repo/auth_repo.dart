@@ -41,6 +41,20 @@ class AuthRepo {
 
     debugPrint('🔗 Incoming URI: $uri');
 
+    // 1) PKCE code akışı: /auth/callback?code=...&type=signup
+    final codeParam = uri.queryParameters['code'];
+    if (codeParam != null && codeParam.isNotEmpty) {
+      try {
+        await _client.auth.exchangeCodeForSession(codeParam);
+        debugPrint('✅ exchangeCodeForSession (code) başarılı');
+        return; // iş bitti
+      } on AuthException catch (e) {
+        debugPrint('❌ exchangeCodeForSession hata: ${e.message}');
+        rethrow;
+      }
+    }
+
+    // 2) Token fragment / query akışı: #access_token=... veya ?access_token=...
     Uri uriForSupabase = uri;
     final qp = uri.queryParameters;
     final hasQueryTokens = qp.containsKey('access_token') || qp.containsKey('refresh_token');
@@ -50,7 +64,7 @@ class AuthRepo {
       uriForSupabase = Uri(
         scheme: uri.scheme,
         host: uri.host,
-        path: uri.path.isEmpty ? null : uri.path, // path varsa koru
+        path: uri.path.isEmpty ? null : uri.path,
         fragment: frag, // <-- #access_token=...&refresh_token=...
       );
       debugPrint('↪️ Rewritten for Supabase: $uriForSupabase');
