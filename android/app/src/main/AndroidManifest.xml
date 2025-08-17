@@ -20,11 +20,21 @@
               android:name="io.flutter.embedding.android.NormalTheme"
               android:resource="@style/NormalTheme"
               />
+            <!-- Custom scheme (mobil için emailRedirectTo: 'almanusulu://auth') -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="almanusulu" android:host="auth"/>
+            </intent-filter>
+            <!-- HTTPS domain (Supabase site URL fallback) -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="https" android:host="almanusulu-3838.web.app"/>
+                <data   android:scheme="https"
+                        android:host="almanusulu-3838.web.app"
+                        android:pathPrefix="/auth"/>
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>

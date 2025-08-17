@@ -2,8 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-
 import '../../app/providers.dart';
+import '../../data/repo/auth_repo.dart';
 
 class GroupDetailPage extends ConsumerWidget {
   final int groupId;
@@ -275,6 +275,9 @@ class _Fab extends ConsumerWidget {
 
     return PopupMenuButton<String>(
       onSelected: (key) async {
+        // ⬇️ GİRİŞ YOKSA AUTH SAYFASINA GÖTÜR
+        final ok = await ensureSignedIn(context);
+        if (!ok) return;
         if (key == 'member') {
           final name = await _askText(context, 'Üye adı');
           if (name == null || name.trim().isEmpty) return;
