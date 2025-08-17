@@ -1,0 +1,12 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.vural.almanusulu",
+      "sha256_cert_fingerprints": [
+        "31:50:4C:E9:31:45:0E:BE:0A:08:4A:06:56:1E:40:36:AB:55:30:6C:43:19:4C:29:F2:56:FF:44:9C:68:CC:D9"
+      ]
+    }
+  }
+]

@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "863381541376",
+    "project_id": "almanusulu-3838",
+    "storage_bucket": "almanusulu-3838.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:863381541376:android:fd7ff1e50742092afb7ee5",
+        "android_client_info": {
+          "package_name": "com.vural.almanusulu"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyD6MYM68YpeEZVhEHsc853K8YSbyycVcMk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
