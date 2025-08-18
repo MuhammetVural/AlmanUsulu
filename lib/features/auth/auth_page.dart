@@ -34,6 +34,8 @@ class _AuthPageState extends State<AuthPage> {
           email: _email.text.trim(),
           password: _pass.text,
         );
+        // Ensure display name before group creation
+        await ensureDisplayName(context);
       } else {
         final res = await client.auth.signUp(
           email: _email.text.trim(),
@@ -42,6 +44,9 @@ class _AuthPageState extends State<AuthPage> {
         );
         // Email confirm off ise res.user != null ve session oluşur
         // on ise kullanıcı mail onayı sonrası oturum açar
+        if (Supabase.instance.client.auth.currentSession != null) {
+          await ensureDisplayName(context); // ← EKLE
+        }
       }
       if (!mounted) return;
       widget.onSignedIn?.call();
@@ -78,7 +83,13 @@ class _AuthPageState extends State<AuthPage> {
           children: [
             TextField(controller: _email, decoration: const InputDecoration(labelText: 'E-posta')),
             const SizedBox(height: 12),
-            TextField(controller: _pass, decoration: const InputDecoration(labelText: 'Şifre'), obscureText: true),
+            TextField(
+              controller: _pass,
+              decoration: const InputDecoration(labelText: 'Şifre'),
+              obscureText: true,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => _submit(), // Enter ile formu gönder
+            ),
             const SizedBox(height: 20),
             SizedBox(
               width: double.infinity,

@@ -28,17 +28,6 @@ class GroupRepo {
         .single();
 
     final groupId = (inserted['id'] as num).toInt();
-
-    // 2) Kurucuyu members'a owner olarak ekle (is_group_manager -> owner olduğu için izin var)
-    await _client.from('members').insert({
-      'group_id': groupId,
-      'user_id': uid,
-      'name': 'Ben',          // İstersen profil adınla değiştir
-      'role': 'owner',
-      'is_active': 1,
-      'created_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
-    });
-
     return groupId;
   }
 

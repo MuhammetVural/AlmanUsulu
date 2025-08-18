@@ -13,6 +13,10 @@ class HomePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final groupsAsync = ref.watch(groupsProvider);
 
+    ref.listen(authStateProvider, (previous, next) {
+      ref.invalidate(groupsProvider);
+    });
+
     return Scaffold(
       drawer: AppDrawer(),
       appBar: AppBar(title: const Text('Gruplar')),
@@ -45,6 +49,7 @@ class HomePage extends ConsumerWidget {
                         final id = g['id'] as int;
                         final currentName = (g['name'] as String?) ?? '';
                         final ctrl = TextEditingController(text: currentName);
+                        ctrl.selection = TextSelection(baseOffset: 0, extentOffset: ctrl.text.length);
 
                         final newName = await showDialog<String>(
                           context: context,
@@ -54,6 +59,12 @@ class HomePage extends ConsumerWidget {
                               controller: ctrl,
                               autofocus: true,
                               decoration: const InputDecoration(hintText: 'Yeni grup adı'),
+                              onTap: () {
+                                // kutuya yeniden dokunursa yine hepsini seç
+                                ctrl.selection = TextSelection(baseOffset: 0, extentOffset: ctrl.text.length);
+                              },
+                              onSubmitted: (_) => Navigator.pop(ctx, ctrl.text.trim()), // klavyeden Enter ile onaylama işlemi
+                              textInputAction: TextInputAction.done,
                             ),
                             actions: [
                               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Vazgeç')),
@@ -154,8 +165,7 @@ class HomePage extends ConsumerWidget {
           final name = await _askGroupName(context);
           if (name == null || name.trim().isEmpty) return;
 
-          // Ensure display name before group creation
-          await ensureDisplayName(context);
+
 
           // Grup oluştur
           await ref.read(groupRepoProvider).createGroup(name.trim());

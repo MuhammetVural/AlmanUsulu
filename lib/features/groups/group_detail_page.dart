@@ -54,11 +54,20 @@ class GroupDetailPage extends ConsumerWidget {
                             onPressed: (member['id'] == null) ? null : () async {
                               final currentName = (member['name'] as String?) ?? '';
                               final ctrl = TextEditingController(text: currentName);
+                              ctrl.selection = TextSelection(baseOffset: 0, extentOffset: ctrl.text.length);
                               final newName = await showDialog<String>(
                                 context: context,
                                 builder: (ctx) => AlertDialog(
                                   title: const Text('Üye adını düzenle'),
-                                  content: TextField(controller: ctrl, autofocus: true),
+                                  content: TextField(
+                                    controller: ctrl,
+                                    autofocus: true,
+                                    onTap: (){
+                                      ctrl.selection = TextSelection(baseOffset: 0, extentOffset: ctrl.text.length);
+                                    },
+                                    textInputAction: TextInputAction.done,
+                                  ),
+
                                   actions: [
                                     TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Vazgeç')),
                                     FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Kaydet')),
@@ -170,6 +179,7 @@ class GroupDetailPage extends ConsumerWidget {
                             onPressed: () async {
                               final titleCtrl = TextEditingController(text: e['title']?.toString() ?? '');
                               final amountCtrl = TextEditingController(text: (e['amount'] as num).toStringAsFixed(2));
+                              titleCtrl.selection = TextSelection(baseOffset: 0, extentOffset: titleCtrl.text.length);
 
                               final result = await showDialog<Map<String, dynamic>>(
                                 context: context,
@@ -181,11 +191,17 @@ class GroupDetailPage extends ConsumerWidget {
                                       TextField(
                                         controller: titleCtrl,
                                         decoration: const InputDecoration(labelText: 'Başlık'),
+                                        onTap: (){
+                                          titleCtrl.selection = TextSelection(baseOffset: 0, extentOffset: titleCtrl.text.length);
+                                        },
+
+                                        textInputAction: TextInputAction.done,
                                       ),
                                       TextField(
                                         controller: amountCtrl,
                                         decoration: const InputDecoration(labelText: 'Tutar'),
                                         keyboardType: TextInputType.numberWithOptions(decimal: true),
+                                        onSubmitted: (_) => Navigator.pop(ctx, titleCtrl.text.trim()), // klavyeden Enter ile onaylama işlemi
                                       ),
                                     ],
                                   ),
@@ -364,7 +380,7 @@ class _Fab extends ConsumerWidget {
       }
       return;
     }
-    final title = await _askText(context, 'Harcama başlığı (opsiyonel)');
+    final title = await _askText(context, 'Harcama Ekle');
     if (title == null) return;
 
     final amountStr = await _askText(context, 'Tutar (ör. 120.50)');
@@ -408,6 +424,7 @@ class _Fab extends ConsumerWidget {
 
   Future<String?> _askText(BuildContext context, String title) async {
     final ctrl = TextEditingController();
+
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(

@@ -41,47 +41,35 @@ class AuthRepo {
 
     debugPrint('🔗 Incoming URI: $uri');
 
-    // 1) PKCE code akışı: /auth/callback?code=...&type=signup
-    final codeParam = uri.queryParameters['code'];
-    if (codeParam != null && codeParam.isNotEmpty) {
-      try {
-        await _client.auth.exchangeCodeForSession(codeParam);
-        debugPrint('✅ exchangeCodeForSession (code) başarılı');
-        return; // iş bitti
-      } on AuthException catch (e) {
-        debugPrint('❌ exchangeCodeForSession hata: ${e.message}');
-        rethrow;
-      }
-    }
-
-    // 2) Token fragment / query akışı: #access_token=... veya ?access_token=...
+    // Eğer tokenlar query'de geldiyse (access_token / refresh_token),
+    // Supabase fragment (#) beklediği için query'yi fragment'e çevir.
     Uri uriForSupabase = uri;
     final qp = uri.queryParameters;
     final hasQueryTokens = qp.containsKey('access_token') || qp.containsKey('refresh_token');
-    if (hasQueryTokens && (uri.fragment.isEmpty)) {
-      // query -> fragment: "a=1&b=2"
-      final frag = Uri(queryParameters: qp).query;
+    if (hasQueryTokens && uri.fragment.isEmpty) {
+      final frag = Uri(queryParameters: qp).query; // "a=1&b=2"
       uriForSupabase = Uri(
         scheme: uri.scheme,
         host: uri.host,
-        path: uri.path.isEmpty ? null : uri.path,
-        fragment: frag, // <-- #access_token=...&refresh_token=...
+        path: uri.path,
+        fragment: frag, // #a=1&b=2
       );
       debugPrint('↪️ Rewritten for Supabase: $uriForSupabase');
     }
 
     try {
+      // 🔴 Artık exchangeCodeForSession KULLANMIYORUZ.
       final res = await Supabase.instance.client.auth.getSessionFromUrl(uriForSupabase);
-      if (res.session == null) {
-        debugPrint('⚠️ getSessionFromUrl: session null. Uri used: $uriForSupabase');
+      if (res.session != null) {
+        debugPrint('✅ Session oluşturuldu: ${res.session!.user.id}');
       } else {
-        debugPrint('✅ Session oluşturuldu: ${res.session!.user.email}');
+        debugPrint('⚠️ getSessionFromUrl session=null döndü');
       }
     } on AuthException catch (e) {
-      debugPrint('❌ AuthException: ${e.message}');
+      debugPrint('❌ getSessionFromUrl AuthException: ${e.message}');
       rethrow;
     } catch (e) {
-      debugPrint('❌ Hata: $e');
+      debugPrint('❌ getSessionFromUrl hata: $e');
       rethrow;
     }
   }
@@ -162,6 +150,7 @@ Future<void> ensureDisplayName(BuildContext context) async {
   if (current != null && current.isNotEmpty) return;
 
   final ctrl = TextEditingController(text: (u.email ?? '').split('@').first);
+  ctrl.selection = TextSelection(baseOffset: 0, extentOffset: ctrl.text.length);
   final name = await showDialog<String>(
     context: context,
     barrierDismissible: false,
@@ -171,6 +160,11 @@ Future<void> ensureDisplayName(BuildContext context) async {
         controller: ctrl,
         autofocus: true,
         decoration: const InputDecoration(hintText: 'Örn: Ali Vural'),
+        onTap: (){
+          ctrl.selection = TextSelection(baseOffset: 0, extentOffset: ctrl.text.length);
+        },
+        onSubmitted: (_) => Navigator.pop(ctx, ctrl.text.trim()), // klavyeden Enter ile onaylama işlemi
+        textInputAction: TextInputAction.done,
       ),
       actions: [
         TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Vazgeç')),

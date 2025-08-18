@@ -39,11 +39,13 @@ class _AuthGateState extends State<AuthGate> {
     final initial = await _links.getInitialLink();
     if (initial != null) {
       await _authRepo.handleAuthDeepLink(initial);
+      await ensureDisplayName(context);
       if (mounted) setState(() {});
     }
     // app açıkken
     _links.uriLinkStream.listen((uri) async {
       await _authRepo.handleAuthDeepLink(uri);
+      await ensureDisplayName(context);
       if (mounted) setState(() {});
     });
   }
