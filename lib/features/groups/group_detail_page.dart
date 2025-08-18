@@ -1,10 +1,13 @@
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../app/providers.dart';
 import '../../data/repo/auth_repo.dart';
+import '../../services/group_invite_link_service.dart';
 
 class GroupDetailPage extends ConsumerWidget {
   final int groupId;
@@ -305,6 +308,7 @@ class _Fab extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
 
     return PopupMenuButton<String>(
+
       onSelected: (key) async {
         // ⬇️ GİRİŞ YOKSA AUTH SAYFASINA GÖTÜR
         final ok = await ensureSignedIn(context);
@@ -363,10 +367,51 @@ class _Fab extends ConsumerWidget {
         } else if (key == 'expense') {
           await _addExpenseFlow(context, ref, groupId);
         }
+        else if (key == 'invite') {
+          // 1) Davet linki üret
+          final url = await GroupInviteLinkService.createInviteLink(groupId);
+
+          // 2) Alt seçenekleri göster: Kopyala / Paylaş
+          if (context.mounted) {
+            await showModalBottomSheet(
+              context: context,
+              showDragHandle: true,
+              builder: (ctx) {
+                return SafeArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ListTile(
+                        leading: const Icon(Icons.link),
+                        title: const Text('Bağlantıyı kopyala'),
+                        onTap: () async {
+                          await Clipboard.setData(ClipboardData(text: url));
+                          Navigator.pop(ctx);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Davet linki kopyalandı')),
+                          );
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.share),
+                        title: const Text('Paylaş (WhatsApp / Instagram / …)'),
+                        onTap: () async {
+                          Navigator.pop(ctx);
+                          await Share.share(url, subject: 'Gruba katıl daveti');
+                        },
+                      ),
+                    ],
+                  ),
+                );
+              },
+            );
+          }
+        }
       },
       itemBuilder: (_) => const [
         PopupMenuItem(value: 'member', child: Text('Üye ekle')),
         PopupMenuItem(value: 'expense', child: Text('Harcama ekle')),
+        PopupMenuItem(value: 'invite', child: Text('Davet linki')),
       ],
       child: const FloatingActionButton(child: Icon(Icons.add), onPressed: null),
     );

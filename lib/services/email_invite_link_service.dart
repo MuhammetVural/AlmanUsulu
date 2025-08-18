@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'package:app_links/app_links.dart';
 
-class InviteLinkService {
+class EmailInviteLinkService {
   static AppLinks? _links;
   static StreamSubscription<Uri>? _sub;
 
