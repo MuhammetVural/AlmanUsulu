@@ -107,7 +107,7 @@ class GroupDetailPage extends ConsumerWidget {
                                             ScaffoldMessenger.of(context).showSnackBar(
                                               const SnackBar(content: Text('Kendinizi silemezsiniz.')),);
                                             return; }
-
+                                          Navigator.pop(ctx, true);
                                         },
 
                                         child: const Text('Sil'),
