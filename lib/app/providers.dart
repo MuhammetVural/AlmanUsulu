@@ -33,6 +33,8 @@ final inviteLinksInitProvider = Provider<void>((ref) {
         }
         final gid = await GroupInviteLinkService.acceptInvite(token);
         debugPrint('✅ Invite kabul edildi. group_id=$gid');
+        // UI'ye haber ver (Snackbar vb.)
+        ref.read(lastAcceptedGroupIdProvider.notifier).state = gid;
         // 🔄 Grupları yenile
         ref.invalidate(groupsProvider);
         // İsteğe bağlı: gid != null ise members/expenses invalidate edilebilir
@@ -45,6 +47,8 @@ final inviteLinksInitProvider = Provider<void>((ref) {
     },
   );
 });
+// Son kabul edilen davetin group_id'sini UI'ye iletmek için
+final lastAcceptedGroupIdProvider = StateProvider<int?>((ref) => null);
 
 final groupRepoProvider = Provider<GroupRepo>((ref) => GroupRepo());
 final memberRepoProvider = Provider<MemberRepo>((ref) => MemberRepo());
@@ -114,4 +118,22 @@ final balancesProvider = FutureProvider.family<Map<int, double>, int>((
     }
   }
   return balances;
+});
+
+
+/// Kullanıcının bir gruptaki rolünü döner (owner/admin/member). Yoksa null.
+final myRoleForGroupProvider = FutureProvider.family<String?, int>((ref, groupId) async {
+  final client = ref.read(supabaseClientProvider);
+  final uid = Supabase.instance.client.auth.currentUser?.id;
+  if (uid == null) return null;
+  final res = await client
+      .from('members')
+      .select('role')
+      .eq('group_id', groupId)
+      .eq('user_id', uid)
+      .isFilter('deleted_at', null)
+      .maybeSingle();
+
+  if (res == null) return null;
+  return res['role'] as String?;
 });
