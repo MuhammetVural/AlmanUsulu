@@ -2,8 +2,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../app/providers.dart';
+import '../../data/repo/auth_repo.dart';
 
 class GroupDetailPage extends ConsumerWidget {
   final int groupId;
@@ -40,6 +41,8 @@ class GroupDetailPage extends ConsumerWidget {
                     );
                     final amount = e.value;
                     final sign = amount >= 0 ? '+' : '';
+                    final currentUid = Supabase.instance.client.auth.currentUser?.id;
+                    final isSelf = (member['user_id'] == currentUid);
                     return ListTile(
                       dense: true,
                       title: Row(
@@ -51,11 +54,20 @@ class GroupDetailPage extends ConsumerWidget {
                             onPressed: (member['id'] == null) ? null : () async {
                               final currentName = (member['name'] as String?) ?? '';
                               final ctrl = TextEditingController(text: currentName);
+                              ctrl.selection = TextSelection(baseOffset: 0, extentOffset: ctrl.text.length);
                               final newName = await showDialog<String>(
                                 context: context,
                                 builder: (ctx) => AlertDialog(
                                   title: const Text('Üye adını düzenle'),
-                                  content: TextField(controller: ctrl, autofocus: true),
+                                  content: TextField(
+                                    controller: ctrl,
+                                    autofocus: true,
+                                    onTap: (){
+                                      ctrl.selection = TextSelection(baseOffset: 0, extentOffset: ctrl.text.length);
+                                    },
+                                    textInputAction: TextInputAction.done,
+                                  ),
+
                                   actions: [
                                     TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Vazgeç')),
                                     FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Kaydet')),
@@ -68,56 +80,68 @@ class GroupDetailPage extends ConsumerWidget {
                               ref.invalidate(membersProvider(groupId)); // isimler tazelensin
                             },
                           ),
-                          IconButton(
-                            icon: const Icon(Icons.delete_outline),
-                            onPressed: () async {
-                              final confirmed = await showDialog<bool>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: const Text('Silinsin mi?'),
-                                  content: const Text('Bu üyeyi silmek istediğinize emin misiniz?'),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(ctx, false),
-                                      child: const Text('Vazgeç'),
-                                    ),
-                                    FilledButton(
-                                      onPressed: () => Navigator.pop(ctx, true),
-                                      child: const Text('Sil'),
-                                    ),
-                                  ],
-                                ),
-                              );
+                          if(!isSelf)
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline),
+                              onPressed: () async {
+                                final confirmed = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('Silinsin mi?'),
+                                    content: const Text('Bu üyeyi silmek istediğinize emin misiniz?'),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () => Navigator.pop(ctx, false),
+                                        child: const Text('Vazgeç'),
+                                      ),
+                                      FilledButton(
+                                        onPressed: () {
+                                          final currentUid = Supabase.instance.client.auth.currentUser?.id;
+                                          final memberId = member['id'] as int?;
+                                          final memberUserId = member['user_id'] as String?; // select(*) içinde döndüğümüz alan
+                                          if (memberUserId != null && memberUserId == currentUid) {
+                                            Navigator.pop(ctx, false);
+                                            ScaffoldMessenger.of(context).showSnackBar(
+                                              const SnackBar(content: Text('Kendinizi silemezsiniz.')),);
+                                            return; }
 
-                              if (confirmed != true) return;
+                                        },
 
-                              // Soft delete + katılımcı kayıtlarını sil
-                              final memberId = member['id'];
-                              await ref.read(memberRepoProvider).softDeleteMember( groupId, memberId);
-
-                              // Listeyi yenile
-                              ref.invalidate(membersProvider(groupId));
-                              ref.invalidate(expensesProvider(groupId));
-                              ref.invalidate(balancesProvider(groupId));
-
-                              // Geri al için snackbar
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: const Text('Üye silindi'),
-                                  action: SnackBarAction(
-                                    label: 'GERİ AL',
-                                    onPressed: () async {
-                                      await ref.read(memberRepoProvider).undoDeleteMember(memberId, groupId);
-                                      await ref.read(memberRepoProvider)
-                                          .undoDeleteMember(memberId, groupId);
-                                      ref.invalidate(membersProvider(groupId));
-                                      ref.invalidate(balancesProvider(groupId));
-                                    },
+                                        child: const Text('Sil'),
+                                      ),
+                                    ],
                                   ),
-                                ),
-                              );
-                            },
-                          ),
+                                );
+
+                                if (confirmed != true) return;
+
+                                // Soft delete + katılımcı kayıtlarını sil
+                                final memberId = member['id'];
+                                await ref.read(memberRepoProvider).softDeleteMember( groupId, memberId);
+
+                                // Listeyi yenile
+                                ref.invalidate(membersProvider(groupId));
+                                ref.invalidate(expensesProvider(groupId));
+                                ref.invalidate(balancesProvider(groupId));
+
+                                // Geri al için snackbar
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: const Text('Üye silindi'),
+                                    action: SnackBarAction(
+                                      label: 'GERİ AL',
+                                      onPressed: () async {
+                                        await ref.read(memberRepoProvider).undoDeleteMember(memberId, groupId);
+                                        await ref.read(memberRepoProvider)
+                                            .undoDeleteMember(memberId, groupId);
+                                        ref.invalidate(membersProvider(groupId));
+                                        ref.invalidate(balancesProvider(groupId));
+                                      },
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
                         ],
                       ),
                       trailing: Text('$sign${amount.toStringAsFixed(2)}'),
@@ -155,6 +179,7 @@ class GroupDetailPage extends ConsumerWidget {
                             onPressed: () async {
                               final titleCtrl = TextEditingController(text: e['title']?.toString() ?? '');
                               final amountCtrl = TextEditingController(text: (e['amount'] as num).toStringAsFixed(2));
+                              titleCtrl.selection = TextSelection(baseOffset: 0, extentOffset: titleCtrl.text.length);
 
                               final result = await showDialog<Map<String, dynamic>>(
                                 context: context,
@@ -166,11 +191,17 @@ class GroupDetailPage extends ConsumerWidget {
                                       TextField(
                                         controller: titleCtrl,
                                         decoration: const InputDecoration(labelText: 'Başlık'),
+                                        onTap: (){
+                                          titleCtrl.selection = TextSelection(baseOffset: 0, extentOffset: titleCtrl.text.length);
+                                        },
+
+                                        textInputAction: TextInputAction.done,
                                       ),
                                       TextField(
                                         controller: amountCtrl,
                                         decoration: const InputDecoration(labelText: 'Tutar'),
                                         keyboardType: TextInputType.numberWithOptions(decimal: true),
+                                        onSubmitted: (_) => Navigator.pop(ctx, titleCtrl.text.trim()), // klavyeden Enter ile onaylama işlemi
                                       ),
                                     ],
                                   ),
@@ -275,6 +306,9 @@ class _Fab extends ConsumerWidget {
 
     return PopupMenuButton<String>(
       onSelected: (key) async {
+        // ⬇️ GİRİŞ YOKSA AUTH SAYFASINA GÖTÜR
+        final ok = await ensureSignedIn(context);
+        if (!ok) return;
         if (key == 'member') {
           final name = await _askText(context, 'Üye adı');
           if (name == null || name.trim().isEmpty) return;
@@ -346,7 +380,7 @@ class _Fab extends ConsumerWidget {
       }
       return;
     }
-    final title = await _askText(context, 'Harcama başlığı (opsiyonel)');
+    final title = await _askText(context, 'Harcama Ekle');
     if (title == null) return;
 
     final amountStr = await _askText(context, 'Tutar (ör. 120.50)');
@@ -390,6 +424,7 @@ class _Fab extends ConsumerWidget {
 
   Future<String?> _askText(BuildContext context, String title) async {
     final ctrl = TextEditingController();
+
     return showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(

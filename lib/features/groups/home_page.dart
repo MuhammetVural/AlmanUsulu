@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:local_alman_usulu/features/groups/app_drawer.dart';
 import '../../app/providers.dart';
+import '../../data/repo/auth_repo.dart';
 import 'group_detail_page.dart';
 
 class HomePage extends ConsumerWidget {
@@ -11,7 +13,12 @@ class HomePage extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final groupsAsync = ref.watch(groupsProvider);
 
+    ref.listen(authStateProvider, (previous, next) {
+      ref.invalidate(groupsProvider);
+    });
+
     return Scaffold(
+      drawer: AppDrawer(),
       appBar: AppBar(title: const Text('Gruplar')),
       body: groupsAsync.when(
         data: (rows) {
@@ -42,6 +49,7 @@ class HomePage extends ConsumerWidget {
                         final id = g['id'] as int;
                         final currentName = (g['name'] as String?) ?? '';
                         final ctrl = TextEditingController(text: currentName);
+                        ctrl.selection = TextSelection(baseOffset: 0, extentOffset: ctrl.text.length);
 
                         final newName = await showDialog<String>(
                           context: context,
@@ -51,6 +59,12 @@ class HomePage extends ConsumerWidget {
                               controller: ctrl,
                               autofocus: true,
                               decoration: const InputDecoration(hintText: 'Yeni grup adı'),
+                              onTap: () {
+                                // kutuya yeniden dokunursa yine hepsini seç
+                                ctrl.selection = TextSelection(baseOffset: 0, extentOffset: ctrl.text.length);
+                              },
+                              onSubmitted: (_) => Navigator.pop(ctx, ctrl.text.trim()), // klavyeden Enter ile onaylama işlemi
+                              textInputAction: TextInputAction.done,
                             ),
                             actions: [
                               TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Vazgeç')),
@@ -150,6 +164,8 @@ class HomePage extends ConsumerWidget {
         onPressed: () async {
           final name = await _askGroupName(context);
           if (name == null || name.trim().isEmpty) return;
+
+
 
           // Grup oluştur
           await ref.read(groupRepoProvider).createGroup(name.trim());

@@ -15,7 +15,10 @@ Future<void> main() async {
   );
   await Supabase.initialize(
     url: Env.supabaseUrl,
-    anonKey: Env.supabaseAnonKey
+    anonKey: Env.supabaseAnonKey,
+    authOptions: const FlutterAuthClientOptions(
+    authFlowType: AuthFlowType.implicit, // 🔴 PKCE değil, IMPLICIT
+  ),
   );
   await InviteLinkService.init(onToken: (token) async {
     // 1) kullanıcı login değilse: token’ı sakla, login ekranına yönlendir

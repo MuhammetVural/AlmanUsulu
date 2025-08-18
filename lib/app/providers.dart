@@ -14,6 +14,11 @@ final databaseProvider = FutureProvider<Database>((ref) async {
   return AppDatabase.instance.db;
 });
 
+/// Supabase auth state değişince event yayınlar (sign-in, sign-out, token refresh)
+final authStateProvider = StreamProvider((ref) {
+  return Supabase.instance.client.auth.onAuthStateChange;
+});
+
 final groupRepoProvider = Provider<GroupRepo>((ref) => GroupRepo());
 final memberRepoProvider = Provider<MemberRepo>((ref) => MemberRepo());
 final expenseRepoProvider = Provider<ExpenseRepo>((ref) => ExpenseRepo());

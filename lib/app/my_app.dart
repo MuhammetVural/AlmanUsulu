@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_alman_usulu/app/auth_gate.dart';
 
 /// Root app widget.
 ///
@@ -22,7 +23,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
         colorSchemeSeed: seedColor ?? Colors.teal,
       ),
-      home: home ?? const _DefaultHome(),
+      home: AuthGate(child: home ?? const _DefaultHome()),
     );
   }
 }
