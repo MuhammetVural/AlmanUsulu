@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="tr">
+<head>
+    <meta charset="utf-8"/>
+    <meta name="viewport" content="width=device-width,initial-scale=1"/>
+    <title>Kayıt Başarılı</title>
+    <style>
+        body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+             display:flex;align-items:center;justify-content:center;
+             min-height:100vh;margin:0;background:#f6f7f9}
+        .card{background:#fff;padding:24px 20px;border-radius:12px;
+              box-shadow:0 6px 24px rgba(0,0,0,.08);max-width:420px;width:92%}
+        h1{margin:0 0 8px 0;font-size:20px}
+        p{margin:8px 0 16px 0;color:#444}
+        .btn{display:inline-block;padding:10px 14px;border-radius:8px;
+             text-decoration:none;border:1px solid #ddd}
+        .primary{background:#0b8f8f;color:#fff;border-color:#0b8f8f}
+        .hint{font-size:12px;color:#666;margin-top:10px}
+    </style>
+</head>
+<body>
+<div class="card">
+    <h1>🎉 Kayıt tamamlandı</h1>
+    <p>Uygulamaya yönlendiriliyorsun. Eğer otomatik açılmazsa aşağıdaki butona tıkla.</p>
+
+    <!-- Uygulamayı custom scheme ile açma (fallback) -->
+    <p><a class="btn primary" id="openApp" href="almanusulu://auth">Uygulamayı Aç</a></p>
+
+    <p class="hint">Otomatik açılmıyorsa cihazınızda uygulama yüklü olduğundan emin olun.</p>
+    <p class="hint">Debug URI: <code id="uriView"></code></p>
+</div>
+
+<script>
+  (function () {
+    // 1) Supabase yeni sürümlerde redirect'i şu iki biçimden biriyle yapar:
+    //    A) /auth/callback?code=pkce_xxx&amp;type=signup   (PKCE code flow)
+    //    B) /auth/callback#access_token=...&refresh_token=...&type=signup  (token fragment)
+    //
+    // 2) Biz hangisi geldiyse onu APP'e taşırız:
+    //    almanusulu://auth?code=...        (A için)
+    //    almanusulu://auth?access_token=...&...  (B'yi query'e çevirerek)
+    //
+    // Önce query string'i kullan (A). Yoksa fragment'ı query'e çevir (B).
+    var search = window.location.search || '';
+    var hash   = window.location.hash   || '';
+    var query  = '';
+
+    if (search && search.length > 1) {
+      // Örn: ?code=...&type=signup
+      query = search;
+    } else if (hash && hash.length > 1) {
+      // Örn: #access_token=... -> ?access_token=...
+      query = '?' + hash.substring(1);
+    } else {
+      // Hiçbiri yoksa parametresiz kalır (debug için gösteriyoruz)
+      query = '';
+    }
+
+    // App target
+    var target = 'almanusulu://auth' + query;
+
+    // Debug UI
+    var v = document.getElementById('uriView');
+    if (v) v.textContent = target;
+
+    // Buton href
+    var a = document.getElementById('openApp');
+    if (a) a.setAttribute('href', target);
+
+    // Otomatik yönlendirme (ufak gecikme)
+    setTimeout(function () {
+      window.location.replace(target);
+    }, 400);
+  })();
+</script>
+</body>
+</html>

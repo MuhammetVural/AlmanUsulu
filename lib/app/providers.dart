@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -5,6 +6,7 @@ import '../data/db/database_provider.dart';
 import '../data/repo/group_repo.dart';
 import '../data/repo/member_repo.dart';
 import '../data/repo/expense_repo.dart';
+import '../services/group_invite_link_service.dart';
 
 final supabaseClientProvider = Provider<SupabaseClient>((ref) {
   return Supabase.instance.client;
@@ -13,6 +15,40 @@ final supabaseClientProvider = Provider<SupabaseClient>((ref) {
 final databaseProvider = FutureProvider<Database>((ref) async {
   return AppDatabase.instance.db;
 });
+
+/// Supabase auth state değişince event yayınlar (sign-in, sign-out, token refresh)
+final authStateProvider = StreamProvider((ref) {
+  return Supabase.instance.client.auth.onAuthStateChange;
+});
+
+final inviteLinksInitProvider = Provider<void>((ref) {
+  // Init sadece bir kez kurulur (service içi idempotent). Hata olursa UI'yi bozmasın.
+  GroupInviteLinkService.init(
+    onToken: (token) async {
+      try {
+        final client = Supabase.instance.client;
+        if (client.auth.currentSession == null) {
+          debugPrint('🔒 Invite token alındı ama kullanıcı login değil.');
+          return; // login yoksa bırak
+        }
+        final gid = await GroupInviteLinkService.acceptInvite(token);
+        debugPrint('✅ Invite kabul edildi. group_id=$gid');
+        // UI'ye haber ver (Snackbar vb.)
+        ref.read(lastAcceptedGroupIdProvider.notifier).state = gid;
+        // 🔄 Grupları yenile
+        ref.invalidate(groupsProvider);
+        // İsteğe bağlı: gid != null ise members/expenses invalidate edilebilir
+      } catch (e) {
+        debugPrint('❌ Invite kabul hatası: $e');
+      }
+
+      // İsteğe bağlı: başka provider’ları da yenileyebilirsin.
+      // Örn: ref.invalidate(membersProvider(groupId));
+    },
+  );
+});
+// Son kabul edilen davetin group_id'sini UI'ye iletmek için
+final lastAcceptedGroupIdProvider = StateProvider<int?>((ref) => null);
 
 final groupRepoProvider = Provider<GroupRepo>((ref) => GroupRepo());
 final memberRepoProvider = Provider<MemberRepo>((ref) => MemberRepo());
@@ -23,7 +59,10 @@ final groupsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   return repo.listGroups();
 });
 
-final membersProvider = FutureProvider.family<List<Map<String, dynamic>>, int>((ref, groupId) async {
+final membersProvider = FutureProvider.family<List<Map<String, dynamic>>, int>((
+  ref,
+  groupId,
+) async {
   final client = ref.read(supabaseClientProvider);
   final res = await client
       .from('members')
@@ -34,20 +73,24 @@ final membersProvider = FutureProvider.family<List<Map<String, dynamic>>, int>((
   return (res as List).cast<Map<String, dynamic>>();
 });
 
-final expensesProvider = FutureProvider.family<List<Map<String, dynamic>>, int>((ref, groupId) async {
-  final client = ref.read(supabaseClientProvider);
-  final res = await client
-      .from('expenses')
-      .select()
-      .eq('group_id', groupId)
-      .isFilter('deleted_at', null);
+final expensesProvider = FutureProvider.family<List<Map<String, dynamic>>, int>(
+  (ref, groupId) async {
+    final client = ref.read(supabaseClientProvider);
+    final res = await client
+        .from('expenses')
+        .select()
+        .eq('group_id', groupId)
+        .isFilter('deleted_at', null);
 
-  return (res as List).cast<Map<String, dynamic>>();
-});
+    return (res as List).cast<Map<String, dynamic>>();
+  },
+);
 
 /// Basit bakiye hesaplayıcı (eşit bölüşme)
-final balancesProvider = FutureProvider.family<Map<int, double>, int>((ref, groupId) async {
-
+final balancesProvider = FutureProvider.family<Map<int, double>, int>((
+  ref,
+  groupId,
+) async {
   final repo = ref.watch(expenseRepoProvider);
 
   final members = await ref.watch(membersProvider(groupId).future);
@@ -75,4 +118,22 @@ final balancesProvider = FutureProvider.family<Map<int, double>, int>((ref, grou
     }
   }
   return balances;
+});
+
+
+/// Kullanıcının bir gruptaki rolünü döner (owner/admin/member). Yoksa null.
+final myRoleForGroupProvider = FutureProvider.family<String?, int>((ref, groupId) async {
+  final client = ref.read(supabaseClientProvider);
+  final uid = Supabase.instance.client.auth.currentUser?.id;
+  if (uid == null) return null;
+  final res = await client
+      .from('members')
+      .select('role')
+      .eq('group_id', groupId)
+      .eq('user_id', uid)
+      .isFilter('deleted_at', null)
+      .maybeSingle();
+
+  if (res == null) return null;
+  return res['role'] as String?;
 });

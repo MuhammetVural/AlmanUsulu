@@ -6,15 +6,29 @@ class GroupRepo {
   final SupabaseClient _client = Supabase.instance.client;
 
   Future<int> createGroup(String name) async {
+    final uid = _client.auth.currentUser?.id;
+    if (uid == null) {
+      throw PostgrestException(
+        message: 'AUTH_REQUIRED: Grup oluşturmak için giriş yapmalısınız.',
+        code: '401',
+        details: 'Unauthorized',
+        hint: null,
+      );
+    }
+
+    // 1) Grubu owner_id ile oluştur (RLS: grp_ins -> owner_id = auth.uid())
     final inserted = await _client
         .from('groups')
         .insert({
       'name': name.trim(),
+      'owner_id': uid,
       'created_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
     })
         .select('id')
         .single();
-    return (inserted['id'] as num).toInt();
+
+    final groupId = (inserted['id'] as num).toInt();
+    return groupId;
   }
 
   Future<List<Map<String, dynamic>>> listGroups() async {
