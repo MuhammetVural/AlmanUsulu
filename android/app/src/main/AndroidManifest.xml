@@ -25,7 +25,7 @@
                 <action android:name="android.intent.action.VIEW"/>
                 <category android:name="android.intent.category.DEFAULT"/>
                 <category android:name="android.intent.category.BROWSABLE"/>
-                <data android:scheme="almanusulu" android:host="auth"/>
+                <data android:scheme="almanusulu" />
             </intent-filter>
             <!-- HTTPS domain (Supabase site URL fallback) -->
             <intent-filter android:autoVerify="true">
@@ -35,6 +35,15 @@
                 <data   android:scheme="https"
                         android:host="almanusulu-3838.web.app"
                         android:pathPrefix="/auth"/>
+            </intent-filter>
+            <!-- HTTPS domain - INVITE linkleri -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data   android:scheme="https"
+                    android:host="almanusulu-3838.web.app"
+                        android:pathPrefix="/invite"/>
             </intent-filter>
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>

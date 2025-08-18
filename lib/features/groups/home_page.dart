@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:local_alman_usulu/features/groups/app_drawer.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../app/providers.dart';
 import '../../data/repo/auth_repo.dart';
+import '../../services/group_invite_link_service.dart';
 import 'group_detail_page.dart';
 
 class HomePage extends ConsumerWidget {
@@ -12,7 +15,9 @@ class HomePage extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final groupsAsync = ref.watch(groupsProvider);
-
+    // Davet linki dinleyicisini ayağa kaldır (idempotent)
+    ref.watch(inviteLinksInitProvider);
+    // Başka biri Login olunca sayfayı yeniler
     ref.listen(authStateProvider, (previous, next) {
       ref.invalidate(groupsProvider);
     });
@@ -92,6 +97,7 @@ class HomePage extends ConsumerWidget {
                         }
                       },
                     ),
+                    // sil
                     IconButton(
                       icon: const Icon(Icons.delete_outline),
                       // HomePage ListTile.trailing (çöp kutusu ikonunun onPressed'i)
@@ -136,6 +142,52 @@ class HomePage extends ConsumerWidget {
                             ),
                           );
                         }
+                      },
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.share),
+                      tooltip: 'Davet linki',
+                      onPressed: () async {
+                        // 1) Giriş kontrolü (login yoksa mini dialog açılır)
+                        final ok = await ensureSignedIn(context);
+                        if (!ok) return;
+
+                        // 2) Davet linki üret
+                        final groupId = g['id'] as int;
+                        final url = await GroupInviteLinkService.createInviteLink(groupId);
+                        if (!context.mounted) return;
+
+                        // 3) Alt sheet: Kopyala / Paylaş
+                        await showModalBottomSheet(
+                          context: context,
+                          showDragHandle: true,
+                          builder: (ctx) => SafeArea(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ListTile(
+                                  leading: const Icon(Icons.link),
+                                  title: const Text('Bağlantıyı kopyala'),
+                                  onTap: () async {
+                                    await Clipboard.setData(ClipboardData(text: url));
+                                    Navigator.pop(ctx);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Davet linki kopyalandı')),
+                                    );
+                                  },
+                                ),
+                                ListTile(
+                                  leading: const Icon(Icons.share),
+                                  title: const Text('Paylaş (WhatsApp / Instagram / …)'),
+                                  onTap: () async {
+                                    Navigator.pop(ctx);
+                                    await Share.share(url, subject: 'Gruba katıl daveti');
+                                  },
+                                ),
+                              ],
+                            ),
+                          ),
+                        );
                       },
                     ),
                   ],

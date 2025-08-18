@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -5,6 +6,7 @@ import '../data/db/database_provider.dart';
 import '../data/repo/group_repo.dart';
 import '../data/repo/member_repo.dart';
 import '../data/repo/expense_repo.dart';
+import '../services/group_invite_link_service.dart';
 
 final supabaseClientProvider = Provider<SupabaseClient>((ref) {
   return Supabase.instance.client;
@@ -19,6 +21,31 @@ final authStateProvider = StreamProvider((ref) {
   return Supabase.instance.client.auth.onAuthStateChange;
 });
 
+final inviteLinksInitProvider = Provider<void>((ref) {
+  // Init sadece bir kez kurulur (service içi idempotent). Hata olursa UI'yi bozmasın.
+  GroupInviteLinkService.init(
+    onToken: (token) async {
+      try {
+        final client = Supabase.instance.client;
+        if (client.auth.currentSession == null) {
+          debugPrint('🔒 Invite token alındı ama kullanıcı login değil.');
+          return; // login yoksa bırak
+        }
+        final gid = await GroupInviteLinkService.acceptInvite(token);
+        debugPrint('✅ Invite kabul edildi. group_id=$gid');
+        // 🔄 Grupları yenile
+        ref.invalidate(groupsProvider);
+        // İsteğe bağlı: gid != null ise members/expenses invalidate edilebilir
+      } catch (e) {
+        debugPrint('❌ Invite kabul hatası: $e');
+      }
+
+      // İsteğe bağlı: başka provider’ları da yenileyebilirsin.
+      // Örn: ref.invalidate(membersProvider(groupId));
+    },
+  );
+});
+
 final groupRepoProvider = Provider<GroupRepo>((ref) => GroupRepo());
 final memberRepoProvider = Provider<MemberRepo>((ref) => MemberRepo());
 final expenseRepoProvider = Provider<ExpenseRepo>((ref) => ExpenseRepo());
@@ -28,7 +55,10 @@ final groupsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
   return repo.listGroups();
 });
 
-final membersProvider = FutureProvider.family<List<Map<String, dynamic>>, int>((ref, groupId) async {
+final membersProvider = FutureProvider.family<List<Map<String, dynamic>>, int>((
+  ref,
+  groupId,
+) async {
   final client = ref.read(supabaseClientProvider);
   final res = await client
       .from('members')
@@ -39,20 +69,24 @@ final membersProvider = FutureProvider.family<List<Map<String, dynamic>>, int>((
   return (res as List).cast<Map<String, dynamic>>();
 });
 
-final expensesProvider = FutureProvider.family<List<Map<String, dynamic>>, int>((ref, groupId) async {
-  final client = ref.read(supabaseClientProvider);
-  final res = await client
-      .from('expenses')
-      .select()
-      .eq('group_id', groupId)
-      .isFilter('deleted_at', null);
+final expensesProvider = FutureProvider.family<List<Map<String, dynamic>>, int>(
+  (ref, groupId) async {
+    final client = ref.read(supabaseClientProvider);
+    final res = await client
+        .from('expenses')
+        .select()
+        .eq('group_id', groupId)
+        .isFilter('deleted_at', null);
 
-  return (res as List).cast<Map<String, dynamic>>();
-});
+    return (res as List).cast<Map<String, dynamic>>();
+  },
+);
 
 /// Basit bakiye hesaplayıcı (eşit bölüşme)
-final balancesProvider = FutureProvider.family<Map<int, double>, int>((ref, groupId) async {
-
+final balancesProvider = FutureProvider.family<Map<int, double>, int>((
+  ref,
+  groupId,
+) async {
   final repo = ref.watch(expenseRepoProvider);
 
   final members = await ref.watch(membersProvider(groupId).future);
