@@ -100,7 +100,6 @@ class GroupDetailPage extends ConsumerWidget {
                                       FilledButton(
                                         onPressed: () {
                                           final currentUid = Supabase.instance.client.auth.currentUser?.id;
-                                          final memberId = member['id'] as int?;
                                           final memberUserId = member['user_id'] as String?; // select(*) içinde döndüğümüz alan
                                           if (memberUserId != null && memberUserId == currentUid) {
                                             Navigator.pop(ctx, false);
