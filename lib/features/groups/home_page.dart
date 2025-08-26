@@ -51,7 +51,7 @@ class HomePage extends ConsumerWidget {
                 final createdAt = DateTime.fromMillisecondsSinceEpoch(createdAtSec * 1000).toLocal();
                 final formattedDate = DateFormat('dd-MM-yyyy | HH:mm').format(createdAt);
                 final myRoleAsync = ref.watch(myRoleForGroupProvider(g['id'] as int));
-                final role = myRoleAsync.asData?.value;
+                // final role = myRoleAsync.asData?.value;
                 final Color dotColor = myRoleAsync.when(
                   data: (role) => (role == 'owner') ? Colors.green : Colors.amber,
                   loading: () => Colors.grey, // yüklenirken nötr renk
@@ -130,17 +130,43 @@ class HomePage extends ConsumerWidget {
                       // gruptan ayrıl (sadece kendini listeden kaldır)
                       IconButton(
                         icon: const Icon(Icons.logout),
-
                         tooltip: 'Gruptan ayrıl',
                         onPressed: () async {
                           final id = g['id'] as int;
 
-                          // 1) Onay diyaloğu
+                          // Bu kullanıcının rolünü çek
+                          final uid = Supabase.instance.client.auth.currentUser?.id;
+                          if (uid == null) return;
+
+                          final rows = await Supabase.instance.client
+                              .from('members')
+                              .select('role')
+                              .eq('group_id', id)
+                              .eq('user_id', uid)
+                              .isFilter('deleted_at', null)
+                              .limit(1);
+
+                          if (rows.isNotEmpty) {
+                            final role = rows.first['role'] as String?;
+                            if (role == 'owner' || role == 'admin') {
+                              // Çıkışa izin verme
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('⚠️ Bu özellik geliştiriliyor. Admin/Owner gruptan ayrılamaz.'),
+                                  ),
+                                );
+                              }
+                              return;
+                            }
+                          }
+
+                          // normal üyeler için ayrılma flow'u devam etsin
                           final confirmed = await showDialog<bool>(
                             context: context,
                             builder: (ctx) => AlertDialog(
                               title: const Text('Gruptan ayrıl?'),
-                              content: Text('“${g['name']}” grubundan ayrıldığınızda bu grup sizin listenizden kalkacak ve hesaplamalara dahil edilmeyeceksiniz.'),
+                              content: Text('“${g['name']}” grubundan ayrıldığınızda bu grup sizin listenizden kalkacak.'),
                               actions: [
                                 TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Vazgeç')),
                                 FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Ayrıl')),
@@ -150,10 +176,7 @@ class HomePage extends ConsumerWidget {
 
                           if (confirmed != true) return;
 
-                          // 2) Sadece kendini gruptan çıkar
                           await ref.read(memberRepoProvider).leaveGroup(id);
-
-                          // 3) Listeyi yenile
                           ref.invalidate(groupsProvider);
 
                           if (context.mounted) {
@@ -162,7 +185,7 @@ class HomePage extends ConsumerWidget {
                             );
                           }
                         },
-                      ),
+                      ), //TODO
                       // Yalnızca owner/admin ise grubu tamamen silebilme (global)
                       FutureBuilder<String?>(
                         future: (() async {

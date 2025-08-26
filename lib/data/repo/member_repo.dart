@@ -37,7 +37,7 @@ class MemberRepo {
         .isFilter('deleted_at', null)
         .limit(1);
 
-    if (rows is List && rows.isNotEmpty) {
+    if (rows.isNotEmpty) {
       final mid = (rows.first['id'] as num).toInt();
       await softDeleteMember(groupId, mid);
     }
