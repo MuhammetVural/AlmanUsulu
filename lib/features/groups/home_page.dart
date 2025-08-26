@@ -127,12 +127,10 @@ class HomePage extends ConsumerWidget {
                           }
                         },
                       ),
-                      // sil
+                      // gruptan ayrıl (sadece kendini listeden kaldır)
                       IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        // HomePage ListTile.trailing (çöp kutusu ikonunun onPressed'i)
-                      // — Soft delete + Snackbar'da GERİ AL
-
+                        icon: const Icon(Icons.logout),
+                        tooltip: 'Gruptan ayrıl',
                         onPressed: () async {
                           final id = g['id'] as int;
 
@@ -140,36 +138,26 @@ class HomePage extends ConsumerWidget {
                           final confirmed = await showDialog<bool>(
                             context: context,
                             builder: (ctx) => AlertDialog(
-                              title: const Text('Silinsin mi?'),
-                              content: Text('“${g['name']}” adlı grubu silmek üzeresiniz.'),
+                              title: const Text('Gruptan ayrıl?'),
+                              content: Text('“${g['name']}” grubundan ayrıldığınızda bu grup sizin listenizden kalkacak ve hesaplamalara dahil edilmeyeceksiniz.'),
                               actions: [
                                 TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Vazgeç')),
-                                FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sil')),
+                                FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Ayrıl')),
                               ],
                             ),
                           );
 
-                          if (confirmed != true) return; // vazgeçildiyse çık
+                          if (confirmed != true) return;
 
-                          // 2) Soft delete (HATIRLATMA: GroupRepo.softDeleteGroup var olmalı ve _db kullanmalı)
-                          await ref.read(groupRepoProvider).softDeleteGroup(id);
+                          // 2) Sadece kendini gruptan çıkar
+                          await ref.read(memberRepoProvider).leaveGroup(id);
 
-                          // 3) Listeyi tazele (ÖNEMLİ: listGroups() -> where: 'deleted_at IS NULL' olmalı)
+                          // 3) Listeyi yenile
                           ref.invalidate(groupsProvider);
 
-                          // 4) Snackbar + UNDO
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text('Grup silindi'),
-                                action: SnackBarAction(
-                                  label: 'GERİ AL',
-                                  onPressed: () async {
-                                    await ref.read(groupRepoProvider).undoDeleteGroup(id);
-                                    ref.invalidate(groupsProvider);
-                                  },
-                                ),
-                              ),
+                              const SnackBar(content: Text('Gruptan ayrıldınız')),
                             );
                           }
                         },

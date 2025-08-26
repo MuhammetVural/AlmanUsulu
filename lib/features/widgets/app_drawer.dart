@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../app/providers.dart';
+
 /// FutureProvider to fetch the current user's member row from Supabase.
 final currentMemberProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
   final sb = Supabase.instance.client;
@@ -28,8 +30,14 @@ class AppDrawer extends ConsumerWidget {
     final sb = Supabase.instance.client;
     final u = sb.auth.currentUser;
     final memberAsync = ref.watch(currentMemberProvider);
+    // Auth metadata değişikliklerini (updateUser) yakalamak için authState'i izle
+    ref.watch(authStateProvider);
+    // Önce auth.metadata.name, yoksa members.name
+    final metaName = (u?.userMetadata?['name'] as String?)?.trim();
+    final name = (metaName != null && metaName.isNotEmpty)
+        ? metaName
+        : ((memberAsync.valueOrNull?['name'] as String?)?.trim() ?? '');
 
-    final name = (memberAsync.valueOrNull?['name'] as String?)?.trim() ?? '';
 
     return Drawer(
       child: ListView(padding: EdgeInsets.zero, children: [
@@ -67,7 +75,11 @@ class AppDrawer extends ConsumerWidget {
                 .eq('user_id', u.id)
                 .isFilter('deleted_at', null);
 
-            ref.invalidate(currentMemberProvider);
+            // Auth metadata.name de güncellensin ki Drawer anında yenilensin
+            await sb.auth.updateUser(UserAttributes(data: {'name': trimmed}));
+
+
+            ref.invalidate(currentMemberProvider);// authStateProvider zaten watch ediliyor; userUpdated ile rebuild olur
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
                 const SnackBar(content: Text('İsim güncellendi')),

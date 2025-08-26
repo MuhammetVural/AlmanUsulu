@@ -5,15 +5,42 @@ class MemberRepo {
 
   // MemberRepo içinde
   Future<int> addMember(int groupId, String name) async {
+    final n = name.trim();
     final inserted = await _client.from('members').insert({
       'group_id': groupId,
-      'name': name.trim(),
+      'name': n.isEmpty ? 'İsimsiz' : n,
       'is_active': 1,
       'created_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
     })
         .select('id')
         .single();
     return (inserted['id'] as num).toInt();
+  }
+
+  Future<void> leaveGroup(int groupId) async {
+    final uid = _client.auth.currentUser?.id;
+    if (uid == null) {
+      throw PostgrestException(
+        message: 'AUTH_REQUIRED: Gruptan ayrılmak için giriş yapmalısınız.',
+        code: '401',
+        details: 'Unauthorized',
+        hint: null,
+      );
+    }
+
+    // Bu kullanıcının bu gruptaki member id'sini bul
+    final rows = await _client
+        .from('members')
+        .select('id')
+        .eq('group_id', groupId)
+        .eq('user_id', uid)
+        .isFilter('deleted_at', null)
+        .limit(1);
+
+    if (rows is List && rows.isNotEmpty) {
+      final mid = (rows.first['id'] as num).toInt();
+      await softDeleteMember(groupId, mid);
+    }
   }
 
   Future<List<Map<String, dynamic>>> listMembers(int groupId) async {
