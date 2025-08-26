@@ -73,6 +73,117 @@ class AuthRepo {
       rethrow;
     }
   }
+
+  /// App geneli deep link karşılayıcı:
+  /// - Auth linklerini mevcut handleAuthDeepLink ile işler.
+  /// - Davet linklerinde kullanıcıdan onay ister ve onaylarsa gruba ekler.
+  Future<void> handleAppDeepLink(BuildContext context, Uri uri) async {
+    // 1) Önce auth linklerini karşılayalım (oturum oluşturma vs.)
+    try {
+      await handleAuthDeepLink(uri);
+    } catch (_) {
+      // auth olmayan linklerde sorun değil; davet akışına geçeceğiz.
+    }
+
+    // 2) Davet linki mi? (ör: .../invite?group_id=123 veya ?gid=123)
+    final isInvitePath = uri.path.contains('invite');
+    final qp = uri.queryParameters;
+    final groupIdStr = qp['group_id'] ?? qp['gid'];
+    if (!isInvitePath && groupIdStr == null) {
+      return; // Davet değil; işimiz yok.
+    }
+
+    final client = Supabase.instance.client;
+    final user = client.auth.currentUser;
+    if (user == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Devam etmek için önce giriş yapın.')),
+        );
+      }
+      return;
+    }
+
+    // 3) Grup bilgisi (adı) al
+    int? groupId = int.tryParse(groupIdStr ?? '');
+    if (groupId == null) {
+      // Bazı davet linkleri path segmentinde id taşıyabilir: /invite/123
+      final seg = uri.pathSegments;
+      final idx = seg.indexWhere((s) => s == 'invite');
+      if (idx != -1 && idx + 1 < seg.length) {
+        groupId = int.tryParse(seg[idx + 1]);
+      }
+    }
+    if (groupId == null) return;
+
+    Map<String, dynamic>? groupRow;
+    try {
+      final res = await client
+          .from('groups')
+          .select('id, name')
+          .eq('id', groupId)
+          .maybeSingle();
+      if (res != null) {
+        groupRow = Map<String, dynamic>.from(res);
+      }
+    } catch (_) {
+      // Gruplar okunamadıysa yine de soruyu sorarız.
+    }
+    final groupName = (groupRow?['name'] as String?) ?? 'bu grup';
+
+    // 4) Kullanıcıdan onay iste
+    final accepted = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Davet'),
+        content: Text('“$groupName” adlı gruba katılma davetini kabul ediyor musunuz?'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Vazgeç')),
+          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Kabul Et')),
+        ],
+      ),
+    );
+    if (accepted != true) return;
+
+    // 5) Üye olarak ekle (mevcutsa çakışmada güncelle; yoksa oluştur)
+    final displayName = (user.userMetadata?['name'] as String?)?.trim().isNotEmpty == true
+        ? user.userMetadata!['name'] as String
+        : (user.email ?? '').split('@').first;
+
+    try {
+      await client
+          .from('members')
+          .upsert({
+            'group_id': groupId,
+            'user_id': user.id,
+            'name': displayName,
+            'is_active': 1,
+            'created_at': DateTime.now().millisecondsSinceEpoch ~/ 1000,
+          }, onConflict: 'group_id,user_id')
+          .select()
+          .maybeSingle();
+
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('“$groupName” grubuna katıldınız.')),
+        );
+      }
+    } on PostgrestException catch (e) {
+      // 23505 unique violation vs. durumlarında kullanıcıya yalın mesaj ver
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gruba katılım sırasında hata: ${e.message}')),
+        );
+      }
+    } catch (e) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gruba katılamadınız: $e')),
+        );
+      }
+    }
+  }
 }
 
 /// ---- Helper: Giriş yoksa mini dialog aç ----

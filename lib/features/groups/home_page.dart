@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import 'package:local_alman_usulu/features/groups/app_drawer.dart';
+import 'package:local_alman_usulu/features/widgets/app_drawer.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../app/providers.dart';
@@ -51,7 +51,7 @@ class HomePage extends ConsumerWidget {
                 final createdAt = DateTime.fromMillisecondsSinceEpoch(createdAtSec * 1000).toLocal();
                 final formattedDate = DateFormat('dd-MM-yyyy | HH:mm').format(createdAt);
                 final myRoleAsync = ref.watch(myRoleForGroupProvider(g['id'] as int));
-                final role = myRoleAsync.asData?.value;
+                // final role = myRoleAsync.asData?.value;
                 final Color dotColor = myRoleAsync.when(
                   data: (role) => (role == 'owner') ? Colors.green : Colors.amber,
                   loading: () => Colors.grey, // yüklenirken nötr renk
@@ -127,51 +127,118 @@ class HomePage extends ConsumerWidget {
                           }
                         },
                       ),
-                      // sil
+                      // gruptan ayrıl (sadece kendini listeden kaldır)
                       IconButton(
-                        icon: const Icon(Icons.delete_outline),
-                        // HomePage ListTile.trailing (çöp kutusu ikonunun onPressed'i)
-                      // — Soft delete + Snackbar'da GERİ AL
-
+                        icon: const Icon(Icons.logout),
+                        tooltip: 'Gruptan ayrıl',
                         onPressed: () async {
                           final id = g['id'] as int;
 
-                          // 1) Onay diyaloğu
+                          // Bu kullanıcının rolünü çek
+                          final uid = Supabase.instance.client.auth.currentUser?.id;
+                          if (uid == null) return;
+
+                          final rows = await Supabase.instance.client
+                              .from('members')
+                              .select('role')
+                              .eq('group_id', id)
+                              .eq('user_id', uid)
+                              .isFilter('deleted_at', null)
+                              .limit(1);
+
+                          if (rows.isNotEmpty) {
+                            final role = rows.first['role'] as String?;
+                            if (role == 'owner' || role == 'admin') {
+                              // Çıkışa izin verme
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('⚠️ Bu özellik geliştiriliyor. Admin/Owner gruptan ayrılamaz.'),
+                                  ),
+                                );
+                              }
+                              return;
+                            }
+                          }
+
+                          // normal üyeler için ayrılma flow'u devam etsin
                           final confirmed = await showDialog<bool>(
                             context: context,
                             builder: (ctx) => AlertDialog(
-                              title: const Text('Silinsin mi?'),
-                              content: Text('“${g['name']}” adlı grubu silmek üzeresiniz.'),
+                              title: const Text('Gruptan ayrıl?'),
+                              content: Text('“${g['name']}” grubundan ayrıldığınızda bu grup sizin listenizden kalkacak.'),
                               actions: [
                                 TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Vazgeç')),
-                                FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sil')),
+                                FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Ayrıl')),
                               ],
                             ),
                           );
 
-                          if (confirmed != true) return; // vazgeçildiyse çık
+                          if (confirmed != true) return;
 
-                          // 2) Soft delete (HATIRLATMA: GroupRepo.softDeleteGroup var olmalı ve _db kullanmalı)
-                          await ref.read(groupRepoProvider).softDeleteGroup(id);
-
-                          // 3) Listeyi tazele (ÖNEMLİ: listGroups() -> where: 'deleted_at IS NULL' olmalı)
+                          await ref.read(memberRepoProvider).leaveGroup(id);
                           ref.invalidate(groupsProvider);
 
-                          // 4) Snackbar + UNDO
                           if (context.mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: const Text('Grup silindi'),
-                                action: SnackBarAction(
-                                  label: 'GERİ AL',
-                                  onPressed: () async {
-                                    await ref.read(groupRepoProvider).undoDeleteGroup(id);
-                                    ref.invalidate(groupsProvider);
-                                  },
-                                ),
-                              ),
+                              const SnackBar(content: Text('Gruptan ayrıldınız')),
                             );
                           }
+                        },
+                      ), //TODO
+                      // Yalnızca owner/admin ise grubu tamamen silebilme (global)
+                      FutureBuilder<String?>(
+                        future: (() async {
+                          final uid = Supabase.instance.client.auth.currentUser?.id;
+                          if (uid == null) return null;
+                          final rows = await Supabase.instance.client
+                              .from('members')
+                              .select('role')
+                              .eq('group_id', g['id'] as int)
+                              .eq('user_id', uid)
+                              .isFilter('deleted_at', null)
+                              .limit(1);
+                          if (rows.isNotEmpty) {
+                            final r = rows.first['role'];
+                            return (r is String) ? r : null;
+                          }
+                          return null;
+                        })(),
+                        builder: (ctx, snap) {
+                          final role = snap.data;
+                          final canDelete = role == 'owner' || role == 'admin';
+                          if (!canDelete) return const SizedBox.shrink();
+
+                          return IconButton(
+                            icon: const Icon(Icons.delete_outline),
+                            tooltip: 'Grubu sil (tüm üyeler için)',
+                            onPressed: () async {
+                              final id = g['id'] as int;
+
+                              // Onay diyaloğu
+                              final confirmed = await showDialog<bool>(
+                                context: context,
+                                builder: (ctx) => AlertDialog(
+                                  title: const Text('Grup silinsin mi?'),
+                                  content: Text('“${g['name']}” grubunu silerseniz TÜM ÜYELER için kaldırılacaktır. Devam edilsin mi?'),
+                                  actions: [
+                                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Vazgeç')),
+                                    FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sil')),
+                                  ],
+                                ),
+                              );
+                              if (confirmed != true) return;
+
+                              await ref.read(groupRepoProvider).softDeleteGroup(id);
+                              ref.invalidate(groupsProvider);
+
+                              if (context.mounted) {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Grup silindi')),
+                                );
+                              }
+                            },
+                          );
                         },
                       ),
                       IconButton(

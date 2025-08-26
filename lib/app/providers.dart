@@ -21,6 +21,13 @@ final authStateProvider = StreamProvider((ref) {
   return Supabase.instance.client.auth.onAuthStateChange;
 });
 
+// Bu provider sadece auth değişimini dinletmek için.
+// Bunu watch eden herkes auth değişince rebuild olur.
+final authUserIdProvider = Provider<String?>((ref) {
+  ref.watch(authStateProvider); // <<— tetikleyici
+  return Supabase.instance.client.auth.currentUser?.id;
+});
+
 final inviteLinksInitProvider = Provider<void>((ref) {
   // Init sadece bir kez kurulur (service içi idempotent). Hata olursa UI'yi bozmasın.
   GroupInviteLinkService.init(
@@ -55,6 +62,7 @@ final memberRepoProvider = Provider<MemberRepo>((ref) => MemberRepo());
 final expenseRepoProvider = Provider<ExpenseRepo>((ref) => ExpenseRepo());
 
 final groupsProvider = FutureProvider<List<Map<String, dynamic>>>((ref) async {
+  final _ = ref.watch(authUserIdProvider);
   final repo = ref.read(groupRepoProvider);
   return repo.listGroups();
 });
@@ -63,18 +71,25 @@ final membersProvider = FutureProvider.family<List<Map<String, dynamic>>, int>((
   ref,
   groupId,
 ) async {
-  final client = ref.read(supabaseClientProvider);
-  final res = await client
-      .from('members')
-      .select()
-      .eq('group_id', groupId)
-      .isFilter('deleted_at', null);
 
-  return (res as List).cast<Map<String, dynamic>>();
+  // AUTH DEĞİŞİMİNİ DİNLET
+  final _ = ref.watch(authUserIdProvider);
+
+  final sb = Supabase.instance.client;
+  final rows = await sb
+      .from('members')
+      .select('*')
+      .eq('group_id', groupId)
+      .isFilter('deleted_at', null)
+      .order('id', ascending: false);
+
+  return List<Map<String, dynamic>>.from(rows);
 });
 
 final expensesProvider = FutureProvider.family<List<Map<String, dynamic>>, int>(
   (ref, groupId) async {
+
+    final _ = ref.watch(authUserIdProvider); // auth değişince yeniden fetch
     final client = ref.read(supabaseClientProvider);
     final res = await client
         .from('expenses')
@@ -91,6 +106,7 @@ final balancesProvider = FutureProvider.family<Map<int, double>, int>((
   ref,
   groupId,
 ) async {
+  final _ = ref.watch(authUserIdProvider); // auth değişince yeniden hesapla
   final repo = ref.watch(expenseRepoProvider);
 
   final members = await ref.watch(membersProvider(groupId).future);

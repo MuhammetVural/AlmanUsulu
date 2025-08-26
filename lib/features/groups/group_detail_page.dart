@@ -8,6 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../app/providers.dart';
 import '../../data/repo/auth_repo.dart';
 import '../../services/group_invite_link_service.dart';
+import '../widgets/app_drawer.dart';
 
 class GroupDetailPage extends ConsumerWidget {
   final int groupId;
@@ -81,6 +82,14 @@ class GroupDetailPage extends ConsumerWidget {
 
                               await ref.read(memberRepoProvider).updateMemberName(member['id'] as int, newName);
                               ref.invalidate(membersProvider(groupId)); // isimler tazelensin
+                              if (isSelf) {
+                                // Profil adını da güncelle (Drawer ve diğer yerler)
+                                await Supabase.instance.client.auth.updateUser(
+                                  UserAttributes(data: {'name': newName}),
+                                );
+                                // Drawer'daki currentMemberProvider'ı da tazele
+                                ref.invalidate(currentMemberProvider);
+                              }
                             },
                           ),
                           if(!isSelf)
@@ -100,6 +109,7 @@ class GroupDetailPage extends ConsumerWidget {
                                       FilledButton(
                                         onPressed: () {
                                           final currentUid = Supabase.instance.client.auth.currentUser?.id;
+
                                           final memberUserId = member['user_id'] as String?; // select(*) içinde döndüğümüz alan
                                           if (memberUserId != null && memberUserId == currentUid) {
                                             Navigator.pop(ctx, false);
