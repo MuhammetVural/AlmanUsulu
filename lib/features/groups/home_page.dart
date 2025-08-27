@@ -42,7 +42,7 @@ class HomePage extends ConsumerWidget {
             }
             return ListView.separated(
               itemCount: rows.length,
-              separatorBuilder: (_, __) => const Divider(height: 1),
+              separatorBuilder: (_, __) => const SizedBox(),
               itemBuilder: (ctx, i) {
                 final g = rows[i];
 
@@ -57,238 +57,7 @@ class HomePage extends ConsumerWidget {
                   loading: () => Colors.grey, // yüklenirken nötr renk
                   error: (_, __) => Colors.red,
                 );
-                return ListTile(
-                  title: Row(
-                    children: [
-                      Container(
-                        width: 10,
-                        height: 10,
-                        decoration: BoxDecoration(
-                          color: dotColor,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(g['name'] as String)),
-                    ],
-                  ),
-                  subtitle: Text(formattedDate), // istersen intl ile biçimlendirebiliriz
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // ✏️ Ad düzenle
-                      IconButton(
-                        icon: const Icon(Icons.edit_outlined),
-                        tooltip: 'Adı düzenle',
-                        onPressed: () async {
-                          final id = g['id'] as int;
-                          final currentName = (g['name'] as String?) ?? '';
-                          final ctrl = TextEditingController(text: currentName);
-                          ctrl.selection = TextSelection(baseOffset: 0, extentOffset: ctrl.text.length);
-
-                          final newName = await showDialog<String>(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: const Text('Grup adını düzenle'),
-                              content: TextField(
-                                controller: ctrl,
-                                autofocus: true,
-                                decoration: const InputDecoration(hintText: 'Yeni grup adı'),
-                                onTap: () {
-                                  // kutuya yeniden dokunursa yine hepsini seç
-                                  ctrl.selection = TextSelection(baseOffset: 0, extentOffset: ctrl.text.length);
-                                },
-                                onSubmitted: (_) => Navigator.pop(ctx, ctrl.text.trim()), // klavyeden Enter ile onaylama işlemi
-                                textInputAction: TextInputAction.done,
-                              ),
-                              actions: [
-                                TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Vazgeç')),
-                                FilledButton(
-                                  onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-                                  child: const Text('Kaydet'),
-                                ),
-                              ],
-                            ),
-                          );
-
-                          // İptal/boşsa yapma
-                          if (newName == null || newName.isEmpty || newName == currentName) return;
-
-                          // DB güncelle
-                          await ref.read(groupRepoProvider).updateGroupName(id, newName);
-
-                          // Listeyi yenile
-                          ref.invalidate(groupsProvider);
-
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Grup adı güncellendi')),
-                            );
-                          }
-                        },
-                      ),
-                      // gruptan ayrıl (sadece kendini listeden kaldır)
-                      IconButton(
-                        icon: const Icon(Icons.logout),
-                        tooltip: 'Gruptan ayrıl',
-                        onPressed: () async {
-                          final id = g['id'] as int;
-
-                          // Bu kullanıcının rolünü çek
-                          final uid = Supabase.instance.client.auth.currentUser?.id;
-                          if (uid == null) return;
-
-                          final rows = await Supabase.instance.client
-                              .from('members')
-                              .select('role')
-                              .eq('group_id', id)
-                              .eq('user_id', uid)
-                              .isFilter('deleted_at', null)
-                              .limit(1);
-
-                          if (rows.isNotEmpty) {
-                            final role = rows.first['role'] as String?;
-                            if (role == 'owner' || role == 'admin') {
-                              // Çıkışa izin verme
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(
-                                    content: Text('⚠️ Bu özellik geliştiriliyor. Admin/Owner gruptan ayrılamaz.'),
-                                  ),
-                                );
-                              }
-                              return;
-                            }
-                          }
-
-                          // normal üyeler için ayrılma flow'u devam etsin
-                          final confirmed = await showDialog<bool>(
-                            context: context,
-                            builder: (ctx) => AlertDialog(
-                              title: const Text('Gruptan ayrıl?'),
-                              content: Text('“${g['name']}” grubundan ayrıldığınızda bu grup sizin listenizden kalkacak.'),
-                              actions: [
-                                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Vazgeç')),
-                                FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Ayrıl')),
-                              ],
-                            ),
-                          );
-
-                          if (confirmed != true) return;
-
-                          await ref.read(memberRepoProvider).leaveGroup(id);
-                          ref.invalidate(groupsProvider);
-
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Gruptan ayrıldınız')),
-                            );
-                          }
-                        },
-                      ), //TODO
-                      // Yalnızca owner/admin ise grubu tamamen silebilme (global)
-                      FutureBuilder<String?>(
-                        future: (() async {
-                          final uid = Supabase.instance.client.auth.currentUser?.id;
-                          if (uid == null) return null;
-                          final rows = await Supabase.instance.client
-                              .from('members')
-                              .select('role')
-                              .eq('group_id', g['id'] as int)
-                              .eq('user_id', uid)
-                              .isFilter('deleted_at', null)
-                              .limit(1);
-                          if (rows.isNotEmpty) {
-                            final r = rows.first['role'];
-                            return (r is String) ? r : null;
-                          }
-                          return null;
-                        })(),
-                        builder: (ctx, snap) {
-                          final role = snap.data;
-                          final canDelete = role == 'owner' || role == 'admin';
-                          if (!canDelete) return const SizedBox.shrink();
-
-                          return IconButton(
-                            icon: const Icon(Icons.delete_outline),
-                            tooltip: 'Grubu sil (tüm üyeler için)',
-                            onPressed: () async {
-                              final id = g['id'] as int;
-
-                              // Onay diyaloğu
-                              final confirmed = await showDialog<bool>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: const Text('Grup silinsin mi?'),
-                                  content: Text('“${g['name']}” grubunu silerseniz TÜM ÜYELER için kaldırılacaktır. Devam edilsin mi?'),
-                                  actions: [
-                                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Vazgeç')),
-                                    FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sil')),
-                                  ],
-                                ),
-                              );
-                              if (confirmed != true) return;
-
-                              await ref.read(groupRepoProvider).softDeleteGroup(id);
-                              ref.invalidate(groupsProvider);
-
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Grup silindi')),
-                                );
-                              }
-                            },
-                          );
-                        },
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.share),
-                        tooltip: 'Davet linki',
-                        onPressed: () async {
-                          // 1) Giriş kontrolü (login yoksa mini dialog açılır)
-                          final ok = await ensureSignedIn(context);
-                          if (!ok) return;
-
-                          // 2) Davet linki üret
-                          final groupId = g['id'] as int;
-                          final url = await GroupInviteLinkService.createInviteLink(groupId);
-                          if (!context.mounted) return;
-
-                          // 3) Alt sheet: Kopyala / Paylaş
-                          await showModalBottomSheet(
-                            context: context,
-                            showDragHandle: true,
-                            builder: (ctx) => SafeArea(
-                              child: Column(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  ListTile(
-                                    leading: const Icon(Icons.link),
-                                    title: const Text('Bağlantıyı kopyala'),
-                                    onTap: () async {
-                                      await Clipboard.setData(ClipboardData(text: url));
-                                      Navigator.pop(ctx);
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('Davet linki kopyalandı')),
-                                      );
-                                    },
-                                  ),
-                                  ListTile(
-                                    leading: const Icon(Icons.share),
-                                    title: const Text('Paylaş (WhatsApp / Instagram / …)'),
-                                    onTap: () async {
-                                      Navigator.pop(ctx);
-                                      await Share.share(url, subject: 'Gruba katıl daveti');
-                                    },
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-                    ],
-                  ),
+                return GestureDetector(
                   onTap: () {
                     Navigator.of(context).push(
                       MaterialPageRoute(
@@ -299,7 +68,288 @@ class HomePage extends ConsumerWidget {
                       ),
                     );
                   },
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: Theme.of(context).colorScheme.surface,
+                      borderRadius: BorderRadius.circular(18),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.06),
+                          blurRadius: 16,
+                          offset: const Offset(0, 8),
+                        ),
+                      ],
+                      border: Border.all(
+                        color: Theme.of(context).colorScheme.outlineVariant.withOpacity(.5),
+                        width: 0.6,
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.all(14),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // başlık + küçük etiket
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        g['name'] as String,
+                                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                          fontWeight: FontWeight.w700,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    // rol etiketini küçük pil gibi göster
+                                    myRoleAsync.when(
+                                      data: (role) {
+                                        final label = (role == 'owner')
+                                            ? 'OWNER'
+                                            : (role == 'admin')
+                                            ? 'ADMIN'
+                                            : 'MEMBER';
+                                        final color = (role == 'owner' || role == 'admin')
+                                            ? Colors.green
+                                            : Colors.amber;
+                                        return _Pill(label: label, color: color); // ✅ burada Pill dönüyoruz
+                                      },
+                                      loading: () => const SizedBox.shrink(),
+                                      error: (_, __) => const SizedBox.shrink(),
+                                    ),
+
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+
+                                // tarih satırı (sağ uçta)
+
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start, // 🔹 sola hizalı
+                                  children: [
+                                    Text(
+                                      "Oluşturulma Tarihi: ",
+                                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                        color: Theme.of(context).colorScheme.onSurface.withOpacity(.6),
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                    Text(
+                                      DateFormat('dd.MM.yyyy').format(createdAt),
+                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                        color: Theme.of(context).colorScheme.onSurface.withOpacity(.8),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+
+                                const SizedBox(height: 8),
+                                // aksiyonlar (mevcut işlevler aynen)
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.end,
+                                  children: [
+                                    IconButton(
+                                      icon: const Icon(Icons.edit_outlined, size: 20),
+                                      tooltip: 'Adı düzenle',
+                                      onPressed: () async {
+                                        final id = g['id'] as int;
+                                        final currentName = (g['name'] as String?) ?? '';
+                                        final ctrl = TextEditingController(text: currentName);
+                                        ctrl.selection = TextSelection(baseOffset: 0, extentOffset: ctrl.text.length);
+
+                                        final newName = await showDialog<String>(
+                                          context: context,
+                                          builder: (ctx) => AlertDialog(
+                                            title: const Text('Grup adını düzenle'),
+                                            content: TextField(
+                                              controller: ctrl,
+                                              autofocus: true,
+                                              decoration: const InputDecoration(hintText: 'Yeni grup adı'),
+                                              onTap: () => ctrl.selection = TextSelection(baseOffset: 0, extentOffset: ctrl.text.length),
+                                              onSubmitted: (_) => Navigator.pop(ctx, ctrl.text.trim()),
+                                              textInputAction: TextInputAction.done,
+                                            ),
+                                            actions: [
+                                              TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Vazgeç')),
+                                              FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Kaydet')),
+                                            ],
+                                          ),
+                                        );
+
+                                        if (newName == null || newName.isEmpty || newName == currentName) return;
+                                        await ref.read(groupRepoProvider).updateGroupName(id, newName);
+                                        ref.invalidate(groupsProvider);
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(const SnackBar(content: Text('Grup adı güncellendi')));
+                                        }
+                                      },
+                                    ),
+
+                                    // gruptan ayrıl
+                                    IconButton(
+                                      icon: const Icon(Icons.logout, size: 20),
+                                      tooltip: 'Gruptan ayrıl',
+                                      onPressed: () async {
+                                        final id = g['id'] as int;
+                                        final uid = Supabase.instance.client.auth.currentUser?.id;
+                                        if (uid == null) return;
+
+                                        final rows = await Supabase.instance.client
+                                            .from('members')
+                                            .select('role')
+                                            .eq('group_id', id)
+                                            .eq('user_id', uid)
+                                            .isFilter('deleted_at', null)
+                                            .limit(1);
+
+                                        if (rows.isNotEmpty) {
+                                          final role = rows.first['role'] as String?;
+                                          if (role == 'owner' || role == 'admin') {
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(content: Text('⚠️ Admin/Owner gruptan ayrılamaz. (Geliştiriliyor)')),
+                                              );
+                                            }
+                                            return;
+                                          }
+                                        }
+
+                                        final confirmed = await showDialog<bool>(
+                                          context: context,
+                                          builder: (ctx) => AlertDialog(
+                                            title: const Text('Gruptan ayrıl?'),
+                                            content: Text('“${g['name']}” grubu listenizden kaldırılacak.'),
+                                            actions: [
+                                              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Vazgeç')),
+                                              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Ayrıl')),
+                                            ],
+                                          ),
+                                        );
+                                        if (confirmed != true) return;
+
+                                        await ref.read(memberRepoProvider).leaveGroup(id);
+                                        ref.invalidate(groupsProvider);
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(const SnackBar(content: Text('Gruptan ayrıldınız')));
+                                        }
+                                      },
+                                    ),
+
+                                    // (owner/admin ise) sil
+                                    FutureBuilder<String?>(
+                                      future: (() async {
+                                        final uid = Supabase.instance.client.auth.currentUser?.id;
+                                        if (uid == null) return null;
+                                        final rows = await Supabase.instance.client
+                                            .from('members')
+                                            .select('role')
+                                            .eq('group_id', g['id'] as int)
+                                            .eq('user_id', uid)
+                                            .isFilter('deleted_at', null)
+                                            .limit(1);
+                                        if (rows.isNotEmpty) {
+                                          final r = rows.first['role'];
+                                          return (r is String) ? r : null;
+                                        }
+                                        return null;
+                                      })(),
+                                      builder: (ctx, snap) {
+                                        final role = snap.data;
+                                        final canDelete = role == 'owner' || role == 'admin';
+                                        if (!canDelete) return const SizedBox.shrink();
+
+                                        return IconButton(
+                                          icon: const Icon(Icons.delete_outline, size: 20),
+                                          tooltip: 'Grubu sil (tüm üyeler için)',
+                                          onPressed: () async {
+                                            final id = g['id'] as int;
+                                            final confirmed = await showDialog<bool>(
+                                              context: context,
+                                              builder: (ctx) => AlertDialog(
+                                                title: const Text('Grup silinsin mi?'),
+                                                content: Text('“${g['name']}” tüm üyeler için kaldırılacak.'),
+                                                actions: [
+                                                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Vazgeç')),
+                                                  FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sil')),
+                                                ],
+                                              ),
+                                            );
+                                            if (confirmed != true) return;
+
+                                            await ref.read(groupRepoProvider).softDeleteGroup(id);
+                                            ref.invalidate(groupsProvider);
+                                            if (context.mounted) {
+                                              ScaffoldMessenger.of(context).showSnackBar(
+                                                const SnackBar(content: Text('Grup silindi')),
+                                              );
+                                            }
+                                          },
+                                        );
+                                      },
+                                    ),
+
+                                    IconButton(
+                                      icon: const Icon(Icons.share, size: 20),
+                                      tooltip: 'Davet linki',
+                                      onPressed: () async {
+                                        final ok = await ensureSignedIn(context);
+                                        if (!ok) return;
+
+                                        final groupId = g['id'] as int;
+                                        final url = await GroupInviteLinkService.createInviteLink(groupId);
+                                        if (!context.mounted) return;
+
+                                        await showModalBottomSheet(
+                                          context: context,
+                                          showDragHandle: true,
+                                          builder: (ctx) => SafeArea(
+                                            child: Column(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                ListTile(
+                                                  leading: const Icon(Icons.link),
+                                                  title: const Text('Bağlantıyı kopyala'),
+                                                  onTap: () async {
+                                                    await Clipboard.setData(ClipboardData(text: url));
+                                                    Navigator.pop(ctx);
+                                                    ScaffoldMessenger.of(context).showSnackBar(
+                                                      const SnackBar(content: Text('Davet linki kopyalandı')),
+                                                    );
+                                                  },
+                                                ),
+                                                ListTile(
+                                                  leading: const Icon(Icons.share),
+                                                  title: const Text('Paylaş (WhatsApp / Instagram / …)'),
+                                                  onTap: () async {
+                                                    Navigator.pop(ctx);
+                                                    await Share.share(url, subject: 'Gruba katıl daveti');
+                                                  },
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 );
+
               },
             );
           },
@@ -357,6 +407,33 @@ class HomePage extends ConsumerWidget {
             child: const Text('Ekle'),
           ),
         ],
+      ),
+    );
+  }
+}
+class _Pill extends StatelessWidget {
+  const _Pill({required this.label, required this.color});
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    if (label.isEmpty) return const SizedBox.shrink();
+    final bg = color.withOpacity(.12);
+    final fg = color;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: fg,
+          fontWeight: FontWeight.w600,
+          letterSpacing: .2,
+        ),
       ),
     );
   }
