@@ -7,6 +7,7 @@ import 'package:local_alman_usulu/services/email_invite_link_service.dart';
 import 'package:local_alman_usulu/services/group_invite_link_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'app/my_app.dart';
+import 'app/splash_gate.dart';
 import 'features/groups/home_page.dart';
 
 Future<void> main() async {
@@ -24,5 +25,5 @@ Future<void> main() async {
   );
 
 
-  runApp(const ProviderScope(child: MyApp(home: HomePage())));
+  runApp(const ProviderScope(child: MyApp(home: SplashGate())));
 }
