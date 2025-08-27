@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:local_alman_usulu/app/auth_gate.dart';
+import 'package:local_alman_usulu/app/theme/app_theme.dart';
 
 /// Root app widget.
 ///
@@ -20,10 +21,9 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Alman Usulü',
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: seedColor ?? Colors.teal,
-      ),
+      theme: lightTheme(),
+      darkTheme: darkTheme(),
+      themeMode: ThemeMode.light,
       home: AuthGate(child: home ?? const _DefaultHome()),
     );
   }

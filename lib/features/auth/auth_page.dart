@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:local_alman_usulu/widgets/ui_components.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../data/repo/auth_repo.dart';
 
@@ -132,34 +133,9 @@ class _AuthPageState extends State<AuthPage> {
                   const SizedBox(height: 28),
 
                   // Fields (labels kept same -> no logic change)
-                  TextField(
-                    controller: _email,
-                    decoration: const InputDecoration(
-                      hintText: 'Email',
-                      border: UnderlineInputBorder(),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(width: 1.6),
-                      ),
-                      contentPadding: EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                  ),
+                  AUTextField(controller: _email, hint: 'E-posta'),
                   const SizedBox(height: 18),
-                  TextField(
-                    controller: _pass,
-                    decoration: const InputDecoration(
-                      hintText: 'Password',
-                      border: UnderlineInputBorder(),
-                      focusedBorder: UnderlineInputBorder(
-                        borderSide: BorderSide(width: 1.6),
-                      ),
-                      contentPadding: EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    obscureText: true,
-                    textInputAction: TextInputAction.done,
-                    onSubmitted: (_) => _submit(),
-                  ),
+                  AUTextField(controller: _pass, hint: 'Şifre'),
 
                   const SizedBox(height: 24),
                   _PrimaryButton(
