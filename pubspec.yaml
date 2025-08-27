@@ -46,7 +46,11 @@ dev_dependencies:
 # The following section is specific to Flutter packages.
 flutter:
   uses-material-design: true
-  # assets / fonts buraya
+  assets:
+    - assets/brand/logo.png
+    - assets/onboarding/avatar1.png
+    - assets/onboarding/avatar2.png
+
 
 flutter_native_splash:
   color: "#EFFAF6"
