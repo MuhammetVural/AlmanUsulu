@@ -29,281 +29,111 @@ class GroupDetailPage extends ConsumerWidget {
           ref.invalidate(expensesProvider(groupId));
           ref.invalidate(balancesProvider(groupId));
         },
-        child: ListView(
-          children: [
-            const ListTile(title: Text('Bakiye Özeti')),
-            balancesAsync.when(
-              data: (bals) {
-                if (bals.isEmpty) {
-                  return const ListTile(title: Text('Üye yok'));
-                }
-                return Column(
-                  children: bals.entries.map((e) {
-                    final member = (membersAsync.asData?.value ?? []).firstWhere(
-                          (m) => m['id'] == e.key,
-                      orElse: () => {'name': 'Üye #${e.key}'},
-                    );
-                    final amount = e.value;
-                    final sign = amount >= 0 ? '+' : '';
-                    final currentUid = Supabase.instance.client.auth.currentUser?.id;
-                    final isSelf = (member['user_id'] == currentUid);
-                    return ListTile(
-                      dense: true,
-                      title: Row(
-                        children: [
-                          Text(member['name'] as String),
-                          IconButton(
-                            icon: const Icon(Icons.edit_outlined),
-                            tooltip: 'Adı düzenle',
-                            onPressed: (member['id'] == null) ? null : () async {
-                              final currentName = (member['name'] as String?) ?? '';
-                              final ctrl = TextEditingController(text: currentName);
-                              ctrl.selection = TextSelection(baseOffset: 0, extentOffset: ctrl.text.length);
-                              final newName = await showDialog<String>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: const Text('Üye adını düzenle'),
-                                  content: TextField(
-                                    controller: ctrl,
-                                    autofocus: true,
-                                    onTap: (){
-                                      ctrl.selection = TextSelection(baseOffset: 0, extentOffset: ctrl.text.length);
-                                    },
-                                    textInputAction: TextInputAction.done,
-                                  ),
+        child: Consumer(
+          builder: (context, ref, _) {
+            final membersAsync = ref.watch(membersProvider(groupId));
+            final expensesAsync = ref.watch(expensesProvider(groupId));
+            final balancesAsync = ref.watch(balancesProvider(groupId));
 
-                                  actions: [
-                                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Vazgeç')),
-                                    FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Kaydet')),
-                                  ],
-                                ),
-                              );
-                              if (newName == null || newName.isEmpty || newName == currentName) return;
+            // Hepsi aynı anda gelsin istiyorsak:
+            if (membersAsync.isLoading || expensesAsync.isLoading || balancesAsync.isLoading) {
+              return const ListTile(title: LinearProgressIndicator());
+            }
+            if (membersAsync.hasError) {
+              return ListTile(title: Text('Üye hatası: ${membersAsync.error}'));
+            }
+            if (expensesAsync.hasError) {
+              return ListTile(title: Text('Harcama hatası: ${expensesAsync.error}'));
+            }
+            if (balancesAsync.hasError) {
+              return ListTile(title: Text('Bakiye hatası: ${balancesAsync.error}'));
+            }
 
-                              await ref.read(memberRepoProvider).updateMemberName(member['id'] as int, newName);
-                              ref.invalidate(membersProvider(groupId)); // isimler tazelensin
-                              if (isSelf) {
-                                // Profil adını da güncelle (Drawer ve diğer yerler)
-                                await Supabase.instance.client.auth.updateUser(
-                                  UserAttributes(data: {'name': newName}),
-                                );
-                                // Drawer'daki currentMemberProvider'ı da tazele
-                                ref.invalidate(currentMemberProvider);
-                              }
-                            },
-                          ),
-                          if(!isSelf)
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline),
-                              onPressed: () async {
-                                final confirmed = await showDialog<bool>(
-                                  context: context,
-                                  builder: (ctx) => AlertDialog(
-                                    title: const Text('Silinsin mi?'),
-                                    content: const Text('Bu üyeyi silmek istediğinize emin misiniz?'),
-                                    actions: [
-                                      TextButton(
-                                        onPressed: () => Navigator.pop(ctx, false),
-                                        child: const Text('Vazgeç'),
-                                      ),
-                                      FilledButton(
-                                        onPressed: () {
-                                          final currentUid = Supabase.instance.client.auth.currentUser?.id;
+            final members = membersAsync.value ?? [];
+            final expenses = expensesAsync.value ?? [];
+            final balances = balancesAsync.value ?? {};
 
-                                          final memberUserId = member['user_id'] as String?; // select(*) içinde döndüğümüz alan
-                                          if (memberUserId != null && memberUserId == currentUid) {
-                                            Navigator.pop(ctx, false);
-                                            ScaffoldMessenger.of(context).showSnackBar(
-                                              const SnackBar(content: Text('Kendinizi silemezsiniz.')),);
-                                            return; }
-                                          Navigator.pop(ctx, true);
-                                        },
+            // --- Tek listeyi düz bir diziye açalım (header + items) ---
+            final List<_Row> rows = [];
 
-                                        child: const Text('Sil'),
-                                      ),
-                                    ],
-                                  ),
-                                );
-
-                                if (confirmed != true) return;
-
-                                // Soft delete + katılımcı kayıtlarını sil
-                                final memberId = member['id'];
-                                await ref.read(memberRepoProvider).softDeleteMember( groupId, memberId);
-
-                                // Listeyi yenile
-                                ref.invalidate(membersProvider(groupId));
-                                ref.invalidate(expensesProvider(groupId));
-                                ref.invalidate(balancesProvider(groupId));
-
-                                // Geri al için snackbar
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: const Text('Üye silindi'),
-                                    action: SnackBarAction(
-                                      label: 'GERİ AL',
-                                      onPressed: () async {
-                                        await ref.read(memberRepoProvider).undoDeleteMember(memberId, groupId);
-                                        await ref.read(memberRepoProvider)
-                                            .undoDeleteMember(memberId, groupId);
-                                        ref.invalidate(membersProvider(groupId));
-                                        ref.invalidate(balancesProvider(groupId));
-                                      },
-                                    ),
-                                  ),
-                                );
-                              },
-                            ),
-                        ],
-                      ),
-                      trailing: Text('$sign${amount.toStringAsFixed(2)}'),
-                    );
-                  }).toList(),
+            // Bakiye Özeti
+            rows.add(const _Row.header('Bakiye Özeti'));
+            if (balances.isEmpty) {
+              rows.add(const _Row.note('Üye yok'));
+            } else {
+              for (final entry in balances.entries) {
+                final member = members.firstWhere(
+                      (m) => m['id'] == entry.key,
+                  orElse: () => {'name': 'Üye #${entry.key}', 'user_id': null, 'id': entry.key},
                 );
-              },
-              loading: () => const Padding(padding: EdgeInsets.all(16), child: LinearProgressIndicator()),
-              error: (e, _) => ListTile(title: Text('Bakiye hatası: $e')),
-            ),
-            const Divider(),
-            const ListTile(title: Text('Harcamalar')),
+                rows.add(_Row.balance(member: member, amount: entry.value));
+              }
+            }
 
-            expensesAsync.when(
-              data: (rows) => rows.isEmpty
-                  ? const ListTile(title: Text('Henüz harcama yok'))
-                  : Column(
-                children: rows.map((e) {
-                  final members = membersAsync.asData?.value ?? [];
-                  final ts = DateTime.fromMillisecondsSinceEpoch((e['created_at'] as int) * 1000).toLocal();
-                  final formattedDate = DateFormat('dd-MM-yyyy | HH:mm').format(ts);
-                  final amountText = (e['amount'] as num).toStringAsFixed(2);
-                  final payerId = e['payer_id'] as int;
-                  final payerName = (members.firstWhere(
-                        (m) => m['id'] == payerId,
-                    orElse: () => {'name': 'Üye #$payerId'},
-                  )['name'] as String);
-                  return ListTile(
-                    title: Row(
-                      children: [
-                        Text(e['title']?.toString() ?? '(Başlıksız)'),
-                        IconButton(
-                          icon: const Icon(Icons.edit_outlined),
-                          tooltip: 'Başlığı düzenle',
-                            onPressed: () async {
-                              final titleCtrl = TextEditingController(text: e['title']?.toString() ?? '');
-                              final amountCtrl = TextEditingController(text: (e['amount'] as num).toStringAsFixed(2));
-                              titleCtrl.selection = TextSelection(baseOffset: 0, extentOffset: titleCtrl.text.length);
+            // Harcamalar
+            rows.add(const _Row.header('Harcamalar'));
+            if (expenses.isEmpty) {
+              rows.add(const _Row.note('Henüz harcama yok'));
+            } else {
+              for (final e in expenses) {
+                rows.add(_Row.expense(expense: e, members: members));
+              }
+            }
 
-                              final result = await showDialog<Map<String, dynamic>>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: const Text('Harcama Düzenle'),
-                                  content: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      TextField(
-                                        controller: titleCtrl,
-                                        decoration: const InputDecoration(labelText: 'Başlık'),
-                                        onTap: (){
-                                          titleCtrl.selection = TextSelection(baseOffset: 0, extentOffset: titleCtrl.text.length);
-                                        },
+            // Üyeler
+            rows.add(const _Row.header('Üyeler'));
+            if (members.isEmpty) {
+              rows.add(const _Row.note('Gruba üye eklenmemiş'));
+            } else {
+              for (final m in members) {
+                rows.add(_Row.member(member: m));
+              }
+            }
 
-                                        textInputAction: TextInputAction.done,
-                                      ),
-                                      TextField(
-                                        controller: amountCtrl,
-                                        decoration: const InputDecoration(labelText: 'Tutar'),
-                                        keyboardType: TextInputType.numberWithOptions(decimal: true),
-                                        onSubmitted: (_) => Navigator.pop(ctx, titleCtrl.text.trim()), // klavyeden Enter ile onaylama işlemi
-                                      ),
-                                    ],
-                                  ),
-                                  actions: [
-                                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Vazgeç')),
-                                    FilledButton(
-                                      onPressed: () {
-                                        final newTitle = titleCtrl.text.trim();
-                                        final newAmount = double.tryParse(amountCtrl.text.replaceAll(',', '.'));
-                                        if (newTitle.isNotEmpty && newAmount != null) {
-                                          Navigator.pop(ctx, {
-                                            'title': newTitle,
-                                            'amount': newAmount,
-                                          });
-                                        }
-                                      },
-                                      child: const Text('Kaydet'),
-                                    ),
-                                  ],
-                                ),
-                              );
-
-                              if (result != null) {
-                                await ref.read(expenseRepoProvider).updateExpense(
-                                  e['id'] as int,
-                                  title: result['title'],
-                                  amount: result['amount'],
-                                );
-                                ref.invalidate(expensesProvider(groupId));
-                                ref.invalidate(balancesProvider(groupId));
-                              }
-                            }
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline),
-                          onPressed: () async {
-                            final confirmed = await showDialog<bool>(
-                              context: context,
-                              builder: (ctx) => AlertDialog(
-                                title: const Text('Silinsin mi?'),
-                                content: const Text('Bu harcama silinecek, emin misiniz?'),
-                                actions: [
-                                  TextButton(
-                                    onPressed: () => Navigator.pop(ctx, false),
-                                    child: const Text('Vazgeç'),
-                                  ),
-                                  FilledButton(
-                                    onPressed: () => Navigator.pop(ctx, true),
-                                    child: const Text('Sil'),
-                                  ),
-                                ],
-                              ),
-                            );
-
-                            if (confirmed == true) {
-                              await ref.read(expenseRepoProvider).softDeleteExpense(e['id'] as int);
-                              ref.invalidate(expensesProvider(groupId));
-
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: const Text('Harcama silindi'),
-                                    action: SnackBarAction(
-                                      label: 'Geri Al',
-                                      onPressed: () async{
-                                        await ref.read(expenseRepoProvider).undoDeleteExpense(e['id'] as int);
-                                        ref.invalidate(expensesProvider(groupId));
-                                        ref.invalidate(balancesProvider(groupId));
-                                      }
-
-                                  ),
-                                  ),
-                                );
-                              }
-                            }
-                          },
-                        ),
-                      ],
+            return ListView.separated(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(bottom: 96, top: 8),
+              itemCount: rows.length,
+              separatorBuilder: (_, __) => const FadedDivider(), // ⬅️ yanları silik, çok ince çizgi
+              itemBuilder: (context, index) {
+                final r = rows[index];
+                return switch (r.type) {
+                  _RowType.header => ListTile(
+                    dense: true,
+                    title: Text(
+                      r.title!,
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
                     ),
-                    subtitle: Text('$payerName ödedi • $formattedDate'),
-                    trailing: Text(amountText),
-                  );
-                }).toList(),
-              ),
-              loading: () => const Padding(padding: EdgeInsets.all(16), child: LinearProgressIndicator()),
-              error: (e, _) => ListTile(title: Text('Harcama hatası: $e')),
-            ),
-            const SizedBox(height: 80),
-          ],
+                  ),
+                  _RowType.note => ListTile(
+                    dense: true,
+                    title: Text(r.title!, style: Theme.of(context).textTheme.bodyMedium),
+                  ),
+                  _RowType.balance => _BalanceTile(
+                    member: r.member!,
+                    amount: r.amount!,
+                    members: members,
+                    groupId: groupId,
+                    ref: ref,
+                  ),
+                  _RowType.expense => _ExpenseTile(
+                    expense: r.expense!,
+                    members: members,
+                    groupId: groupId,
+                    ref: ref,
+                  ),
+                  _RowType.member => _MemberTile(
+                    member: r.member!,
+                    groupId: groupId,
+                    ref: ref,
+                  ),
+                };
+              },
+            );
+          },
         ),
       ),
+
       floatingActionButton: _Fab(groupId: groupId),
     );
   }
@@ -489,6 +319,147 @@ class _Fab extends ConsumerWidget {
           FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('Tamam')),
         ],
       ),
+    );
+  }
+}
+
+enum _RowType { header, note, balance, expense, member }
+
+class _Row {
+  final _RowType type;
+  final String? title;
+  final Map<String, dynamic>? member;
+  final double? amount;
+  final Map<String, dynamic>? expense;
+  final List<Map<String, dynamic>>? members;
+
+  const _Row._(
+      {required this.type, this.title, this.member, this.amount, this.expense, this.members});
+
+  const _Row.header(this.title)
+      : type = _RowType.header,
+        member = null,
+        amount = null,
+        expense = null,
+        members = null;
+
+  const _Row.note(this.title)
+      : type = _RowType.note,
+        member = null,
+        amount = null,
+        expense = null,
+        members = null;
+
+  factory _Row.balance({required Map<String, dynamic> member, required double amount}) =>
+      _Row._(type: _RowType.balance, member: member, amount: amount);
+
+  factory _Row.expense({required Map<String, dynamic> expense, required List<Map<String, dynamic>> members}) =>
+      _Row._(type: _RowType.expense, expense: expense, members: members);
+
+  factory _Row.member({required Map<String, dynamic> member}) =>
+      _Row._(type: _RowType.member, member: member);
+}
+
+class FadedDivider extends StatelessWidget {
+  const FadedDivider({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final dpr = MediaQuery.of(context).devicePixelRatio;
+    final thickness = (1.0 / dpr).clamp(0.4, 1.0); // hairline ~ süper ince
+
+    return SizedBox(
+      height: thickness,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [
+              Colors.transparent,
+              Theme.of(context).colorScheme.outlineVariant.withOpacity(.35),
+              Theme.of(context).colorScheme.outlineVariant.withOpacity(.35),
+              Colors.transparent,
+            ],
+            stops: const [0.0, 0.15, 0.85, 1.0], // kenarlarda silikleşme
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _BalanceTile extends StatelessWidget {
+  final Map<String, dynamic> member;
+  final double amount;
+  final List<Map<String, dynamic>> members;
+  final int groupId;
+  final WidgetRef ref;
+  const _BalanceTile({required this.member, required this.amount, required this.members, required this.groupId, required this.ref, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final sign = amount >= 0 ? '+' : '';
+    final isSelf = (member['user_id'] == Supabase.instance.client.auth.currentUser?.id);
+    return ListTile(
+      dense: true,
+      title: Text(member['name'] as String),
+      leading: CircleAvatar(
+        radius: 14,
+        child: Text((member['name'] as String).isNotEmpty ? (member['name'] as String)[0].toUpperCase() : '?'),
+      ),
+      trailing: Text('$sign${amount.toStringAsFixed(2)}'),
+      // İstersen burada popup menu vs. ekleyebilirsin
+      subtitle: isSelf ? const Text('Sen', style: TextStyle(fontSize: 12)) : null,
+    );
+  }
+}
+
+class _ExpenseTile extends StatelessWidget {
+  final Map<String, dynamic> expense;
+  final List<Map<String, dynamic>> members;
+  final int groupId;
+  final WidgetRef ref;
+  const _ExpenseTile({required this.expense, required this.members, required this.groupId, required this.ref, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final ts = DateTime.fromMillisecondsSinceEpoch((expense['created_at'] as int) * 1000).toLocal();
+    final dateStr = DateFormat('dd-MM-yyyy | HH:mm').format(ts);
+    final amountText = (expense['amount'] as num).toStringAsFixed(2);
+    final payerId = expense['payer_id'] as int;
+    final payerName = (members.firstWhere(
+          (m) => m['id'] == payerId,
+      orElse: () => {'name': 'Üye #$payerId'},
+    )['name'] as String);
+
+    return ListTile(
+      title: Text(expense['title']?.toString() ?? '(Başlıksız)'),
+      subtitle: Text('$payerName • $dateStr'),
+      trailing: Text(amountText),
+      // TODO: üç nokta menüsü / düzenle-sil aksiyonlarını buraya taşıyabilirsin
+      onTap: () {}, // detay isterse
+    );
+  }
+}
+
+class _MemberTile extends StatelessWidget {
+  final Map<String, dynamic> member;
+  final int groupId;
+  final WidgetRef ref;
+  const _MemberTile({required this.member, required this.groupId, required this.ref, super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final isSelf = (member['user_id'] == Supabase.instance.client.auth.currentUser?.id);
+    return ListTile(
+      title: Text(member['name'] as String),
+      leading: CircleAvatar(
+        radius: 14,
+        child: Text((member['name'] as String).isNotEmpty ? (member['name'] as String)[0].toUpperCase() : '?'),
+      ),
+      subtitle: isSelf ? const Text('Sen', style: TextStyle(fontSize: 12)) : null,
+      // TODO: burada da düzenle/sil aksiyonlarını ekleyebilirsin
     );
   }
 }
