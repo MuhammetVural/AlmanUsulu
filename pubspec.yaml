@@ -29,6 +29,7 @@ dependencies:
   app_links: ^6.4.1
   share_plus: ^10.0.0
   flutter_native_splash: ^2.4.6
+  shimmer: ^3.0.0
 
 
 dev_dependencies:

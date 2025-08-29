@@ -28,7 +28,10 @@ class HomePage extends ConsumerWidget {
 
     return Scaffold(
       drawer: AppDrawer(),
-      appBar: AppBar(title: const Text('Gruplar')),
+      appBar: AppBar(
+        title: const Text('Gruplar'),
+        actions: const [ThemeModeAction()],
+      ),
       body: RefreshIndicator(
         onRefresh: () async {
           // Provider’ı invalid edip yeniden fetch etmesini bekle
@@ -68,19 +71,13 @@ class HomePage extends ConsumerWidget {
                       ),
                     );
                   },
-                  child: Container(
+                  child: Card(
                     margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
+                    color: Theme.of(context).cardTheme.color,
+                    elevation: Theme.of(context).cardTheme.elevation ?? 0,
+                    shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(18),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.06),
-                          blurRadius: 16,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                      border: Border.all(
+                      side: BorderSide(
                         color: Theme.of(context).colorScheme.outlineVariant.withOpacity(.5),
                         width: 0.6,
                       ),
@@ -435,6 +432,42 @@ class _Pill extends StatelessWidget {
           letterSpacing: .2,
         ),
       ),
+    );
+  }
+}
+
+class ThemeModeAction extends ConsumerWidget {
+  const ThemeModeAction({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(themeModeProvider);
+    IconData icon;
+    String tooltip;
+    switch (mode) {
+      case ThemeMode.light:
+        icon = Icons.light_mode;
+        tooltip = 'Aydınlık tema';
+        break;
+      case ThemeMode.dark:
+        icon = Icons.dark_mode;
+        tooltip = 'Karanlık tema';
+        break;
+      case ThemeMode.system:
+      default:
+        icon = Icons.brightness_auto;
+        tooltip = 'Sistem teması';
+        break;
+    }
+    return PopupMenuButton<ThemeMode>(
+      icon: Icon(icon),
+      tooltip: tooltip,
+      onSelected: (m) => ref.read(themeModeProvider.notifier).set(m),
+      itemBuilder: (ctx) => const [
+        PopupMenuItem(value: ThemeMode.system, child: Text('Sistem')),
+        PopupMenuItem(value: ThemeMode.light,  child: Text('Aydınlık')),
+        PopupMenuItem(value: ThemeMode.dark,   child: Text('Karanlık')),
+      ],
     );
   }
 }

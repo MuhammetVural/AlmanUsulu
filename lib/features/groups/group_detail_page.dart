@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:local_alman_usulu/widgets/loading_list.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../app/providers.dart';
@@ -40,7 +41,7 @@ class GroupDetailPage extends ConsumerWidget {
 
             // Hepsi aynı anda gelsin istiyorsak:
             if (membersAsync.isLoading || expensesAsync.isLoading || balancesAsync.isLoading) {
-              return const ListTile(title: LinearProgressIndicator());
+              return const ListTile(title: LoadingList());
             }
             if (membersAsync.hasError) {
               return ListTile(title: Text('Üye hatası: ${membersAsync.error}'));

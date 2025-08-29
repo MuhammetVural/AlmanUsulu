@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../data/db/database_provider.dart';
@@ -152,4 +153,53 @@ final myRoleForGroupProvider = FutureProvider.family<String?, int>((ref, groupId
 
   if (res == null) return null;
   return res['role'] as String?;
+});
+
+class ThemeController extends StateNotifier<ThemeMode> {
+  ThemeController() : super(ThemeMode.system);
+  static const _key = 'theme_mode';
+
+  ThemeMode _decode(String v) {
+    switch (v) {
+      case 'light': return ThemeMode.light;
+      case 'dark':  return ThemeMode.dark;
+      default:      return ThemeMode.system;
+    }
+  }
+
+  String _encode(ThemeMode m) {
+    switch (m) {
+      case ThemeMode.light:  return 'light';
+      case ThemeMode.dark:   return 'dark';
+      case ThemeMode.system:
+      default:               return 'system';
+    }
+  }
+
+  Future<void> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_key);
+    if (raw != null) state = _decode(raw);
+  }
+
+  Future<void> set(ThemeMode mode) async {
+    state = mode;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_key, _encode(mode));
+  }
+
+  Future<void> toggle() async {
+    final next = switch (state) {
+      ThemeMode.light  => ThemeMode.dark,
+      ThemeMode.dark   => ThemeMode.light,
+      ThemeMode.system => ThemeMode.dark,
+    };
+    await set(next);
+  }
+}
+
+final themeModeProvider = StateNotifierProvider<ThemeController, ThemeMode>((ref) {
+  final ctrl = ThemeController();
+  ctrl.load(); // async yükle (kalıcı tercih)
+  return ctrl;
 });
