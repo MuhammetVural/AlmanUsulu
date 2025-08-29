@@ -455,7 +455,13 @@ class _BalanceTile extends StatelessWidget {
       title: Text(member['name'] as String),
       leading: CircleAvatar(
         radius: 14,
-        child: Text((member['name'] as String).isNotEmpty ? (member['name'] as String)[0].toUpperCase() : '?'),
+        backgroundColor: _colorFromString(member['id'].toString() + (member['name'] as String? ?? '')),
+        child: Text(
+          (member['name'] as String).isNotEmpty
+              ? (member['name'] as String)[0].toUpperCase()
+              : '?',
+          style: const TextStyle(color: Colors.white),
+        ),
       ),
       trailing: Text(
         (amount >= 0)
@@ -556,13 +562,28 @@ class _MemberTile extends StatelessWidget {
       title: Text(member['name'] as String),
       leading: CircleAvatar(
         radius: 14,
-        child: Text((member['name'] as String).isNotEmpty ? (member['name'] as String)[0].toUpperCase() : '?'),
+        backgroundColor: _colorFromString(member['id'].toString() + (member['name'] as String? ?? '')),
+        child: Text(
+          (member['name'] as String).isNotEmpty
+              ? (member['name'] as String)[0].toUpperCase()
+              : '?',
+          style: const TextStyle(color: Colors.white),
+        ),
       ),
       subtitle: isSelf ? const Text('Sen', style: TextStyle(fontSize: 12)) : null,
       trailing: (roleLabel == null) ? null : _RolePill(label: roleLabel, color: roleColor),
       // TODO: burada da düzenle/sil aksiyonlarını ekleyebilirsin
     );
   }
+}
+
+// Helper function for generating a random color from a string (member id + name)
+Color _colorFromString(String input) {
+  final hash = input.hashCode;
+  final r = (hash & 0xFF0000) >> 16;
+  final g = (hash & 0x00FF00) >> 8;
+  final b = (hash & 0x0000FF);
+  return Color.fromARGB(255, r, g, b).withOpacity(0.8);
 }
 
 class _RolePill extends StatelessWidget {
