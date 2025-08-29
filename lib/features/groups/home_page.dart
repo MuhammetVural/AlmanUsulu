@@ -450,12 +450,11 @@ class ThemeModeAction extends ConsumerWidget {
         tooltip = 'Aydınlık tema';
         break;
       case ThemeMode.dark:
-        icon = Icons.dark_mode;
+        icon = Icons.brightness_2_outlined;
         tooltip = 'Karanlık tema';
         break;
       case ThemeMode.system:
-      default:
-        icon = Icons.brightness_auto;
+      icon = Icons.brightness_4_outlined;
         tooltip = 'Sistem teması';
         break;
     }
@@ -464,9 +463,25 @@ class ThemeModeAction extends ConsumerWidget {
       tooltip: tooltip,
       onSelected: (m) => ref.read(themeModeProvider.notifier).set(m),
       itemBuilder: (ctx) => const [
-        PopupMenuItem(value: ThemeMode.system, child: Text('Sistem')),
-        PopupMenuItem(value: ThemeMode.light,  child: Text('Aydınlık')),
-        PopupMenuItem(value: ThemeMode.dark,   child: Text('Karanlık')),
+        PopupMenuItem(value: ThemeMode.system, child: Row(
+          children: [
+            Icon(Icons.brightness_4_outlined),
+            Text(' Sistem')
+          ],
+        )),
+        PopupMenuItem(value: ThemeMode.light,  child: Row(
+          children: [
+
+            Icon(Icons.light_mode),
+            Text(' Açık'),
+          ],
+        )),
+        PopupMenuItem(value: ThemeMode.dark,   child: Row(
+          children: [
+            Icon(Icons.brightness_2_outlined),
+            Text(' Koyu'),
+          ],
+        )),
       ],
     );
   }
