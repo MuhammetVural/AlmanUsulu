@@ -30,7 +30,7 @@ class HomePage extends ConsumerWidget {
       drawer: AppDrawer(),
       appBar: AppBar(
         title: const Text('Gruplar'),
-        actions: const [ThemeModeAction()],
+        actions: const [ThemeToggleIcon()],
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -436,53 +436,33 @@ class _Pill extends StatelessWidget {
   }
 }
 
-class ThemeModeAction extends ConsumerWidget {
-  const ThemeModeAction({super.key});
+class ThemeToggleIcon extends ConsumerWidget {
+  const ThemeToggleIcon({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mode = ref.watch(themeModeProvider);
-    IconData icon;
-    String tooltip;
-    switch (mode) {
-      case ThemeMode.light:
-        icon = Icons.light_mode;
-        tooltip = 'Aydınlık tema';
-        break;
-      case ThemeMode.dark:
-        icon = Icons.brightness_2_outlined;
-        tooltip = 'Karanlık tema';
-        break;
-      case ThemeMode.system:
-      icon = Icons.brightness_4_outlined;
-        tooltip = 'Sistem teması';
-        break;
-    }
-    return PopupMenuButton<ThemeMode>(
-      icon: Icon(icon),
-      tooltip: tooltip,
-      onSelected: (m) => ref.read(themeModeProvider.notifier).set(m),
-      itemBuilder: (ctx) => const [
-        PopupMenuItem(value: ThemeMode.system, child: Row(
-          children: [
-            Icon(Icons.brightness_4_outlined),
-            Text(' Sistem')
-          ],
-        )),
-        PopupMenuItem(value: ThemeMode.light,  child: Row(
-          children: [
+    final Brightness systemB = MediaQuery.of(context).platformBrightness;
 
-            Icon(Icons.light_mode),
-            Text(' Açık'),
-          ],
-        )),
-        PopupMenuItem(value: ThemeMode.dark,   child: Row(
-          children: [
-            Icon(Icons.brightness_2_outlined),
-            Text(' Koyu'),
-          ],
-        )),
-      ],
+    // Şu an koyu mu?
+    final bool isDarkNow = switch (mode) {
+      ThemeMode.dark   => true,
+      ThemeMode.light  => false,
+      ThemeMode.system => systemB == Brightness.dark,
+    };
+
+    final icon = isDarkNow ? Icons.dark_mode : Icons.light_mode;
+    final tooltip = isDarkNow ? 'Karanlık tema' : 'Aydınlık tema';
+
+    return IconButton(
+      tooltip: '$tooltip (değiştir)',
+      icon: Icon(icon),
+      onPressed: () {
+        // Her basışta sadece Light <-> Dark
+        ref.read(themeModeProvider.notifier)
+            .set(isDarkNow ? ThemeMode.light : ThemeMode.dark);
+      },
     );
   }
 }
+
