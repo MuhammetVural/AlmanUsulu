@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:local_alman_usulu/app/auth_gate.dart';
+import 'package:local_alman_usulu/app/providers.dart';
 import 'package:local_alman_usulu/app/theme/app_theme.dart';
 
 /// Root app widget.
 ///
 /// - [home] opsiyoneldir; verilmezse basit bir yer tutucu ekran gösterilir.
 /// - Material 3 teması ve `colorSchemeSeed` ile kolayca özelleştirilebilir.
-class MyApp extends StatelessWidget {
+class MyApp extends ConsumerWidget {
   final Widget? home;
   final Color? seedColor;
 
@@ -17,13 +19,14 @@ class MyApp extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(themeModeProvider);
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'Alman Usulü',
       theme: lightTheme(),
       darkTheme: darkTheme(),
-      themeMode: ThemeMode.light,
+      themeMode: mode,
       home: AuthGate(child: home ?? const _DefaultHome()),
     );
   }

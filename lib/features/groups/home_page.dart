@@ -28,7 +28,10 @@ class HomePage extends ConsumerWidget {
 
     return Scaffold(
       drawer: AppDrawer(),
-      appBar: AppBar(title: const Text('Gruplar')),
+      appBar: AppBar(
+        title: const Text('Gruplar'),
+        actions: const [ThemeToggleIcon()],
+      ),
       body: RefreshIndicator(
         onRefresh: () async {
           // Provider’ı invalid edip yeniden fetch etmesini bekle
@@ -68,19 +71,13 @@ class HomePage extends ConsumerWidget {
                       ),
                     );
                   },
-                  child: Container(
+                  child: Card(
                     margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
+                    color: Theme.of(context).cardTheme.color,
+                    elevation: Theme.of(context).cardTheme.elevation ?? 0,
+                    shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(18),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.06),
-                          blurRadius: 16,
-                          offset: const Offset(0, 8),
-                        ),
-                      ],
-                      border: Border.all(
+                      side: BorderSide(
                         color: Theme.of(context).colorScheme.outlineVariant.withOpacity(.5),
                         width: 0.6,
                       ),
@@ -438,3 +435,34 @@ class _Pill extends StatelessWidget {
     );
   }
 }
+
+class ThemeToggleIcon extends ConsumerWidget {
+  const ThemeToggleIcon({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final mode = ref.watch(themeModeProvider);
+    final Brightness systemB = MediaQuery.of(context).platformBrightness;
+
+    // Şu an koyu mu?
+    final bool isDarkNow = switch (mode) {
+      ThemeMode.dark   => true,
+      ThemeMode.light  => false,
+      ThemeMode.system => systemB == Brightness.dark,
+    };
+
+    final icon = isDarkNow ? Icons.dark_mode : Icons.light_mode;
+    final tooltip = isDarkNow ? 'Karanlık tema' : 'Aydınlık tema';
+
+    return IconButton(
+      tooltip: '$tooltip (değiştir)',
+      icon: Icon(icon),
+      onPressed: () {
+        // Her basışta sadece Light <-> Dark
+        ref.read(themeModeProvider.notifier)
+            .set(isDarkNow ? ThemeMode.light : ThemeMode.dark);
+      },
+    );
+  }
+}
+
