@@ -56,84 +56,87 @@ class GroupDetailPage extends ConsumerWidget {
             final expenses = expensesAsync.value ?? [];
             final balances = balancesAsync.value ?? {};
 
-            // --- Tek listeyi düz bir diziye açalım (header + items) ---
-            final List<_Row> rows = [];
 
-            // Bakiye Özeti
-            rows.add(const _Row.header('Bakiye Özeti'));
+// --- 3 Ayrı Kart: Bakiye Özeti, Harcamalar, Üyeler ---
+
+// 1) Bakiye Özeti kartı item'ları
+            final List<Widget> balanceItems = [];
             if (balances.isEmpty) {
-              rows.add(const _Row.note('Üye yok'));
+              balanceItems.add(
+                const ListTile(dense: true, title: Text('Üye yok')),
+              );
             } else {
               for (final entry in balances.entries) {
                 final member = members.firstWhere(
                       (m) => m['id'] == entry.key,
                   orElse: () => {'name': 'Üye #${entry.key}', 'user_id': null, 'id': entry.key},
                 );
-                rows.add(_Row.balance(member: member, amount: entry.value));
+                balanceItems.add(
+                  _BalanceTile(
+                    member: member,
+                    amount: entry.value,
+                    members: members,
+                    groupId: groupId,
+                    ref: ref,
+                  ),
+                );
               }
             }
 
-            // Harcamalar
-            rows.add(const _Row.header('Harcamalar'));
+// 2) Harcamalar kartı item'ları
+            final List<Widget> expenseItems = [];
             if (expenses.isEmpty) {
-              rows.add(const _Row.note('Henüz harcama yok'));
+              expenseItems.add(
+                const ListTile(dense: true, title: Text('Henüz harcama yok')),
+              );
             } else {
               for (final e in expenses) {
-                rows.add(_Row.expense(expense: e, members: members, myRole: myRole));
+                expenseItems.add(
+                  _ExpenseTile(
+                    expense: e,
+                    members: members,
+                    groupId: groupId,
+                    ref: ref,
+                    canManage: (myRole == 'owner' || myRole == 'admin'),
+                  ),
+                );
               }
             }
 
-            // Üyeler
-            rows.add(const _Row.header('Üyeler'));
+// 3) Üyeler kartı item'ları
+            final List<Widget> memberItems = [];
             if (members.isEmpty) {
-              rows.add(const _Row.note('Gruba üye eklenmemiş'));
+              memberItems.add(
+                const ListTile(dense: true, title: Text('Gruba üye eklenmemiş')),
+              );
             } else {
               for (final m in members) {
-                rows.add(_Row.member(member: m));
+                memberItems.add(
+                  _MemberTile(member: m, groupId: groupId, ref: ref),
+                );
               }
             }
 
-            return ListView.separated(
+// 3 ayrı kartı tek bir scroll içinde göster
+            return ListView(
               physics: const AlwaysScrollableScrollPhysics(),
-              padding: const EdgeInsets.only(bottom: 96, top: 8),
-              itemCount: rows.length,
-              separatorBuilder: (_, __) => const FadedDivider(), // ⬅️ yanları silik, çok ince çizgi
-              itemBuilder: (context, index) {
-                final r = rows[index];
-                return switch (r.type) {
-                  _RowType.header => ListTile(
-                    dense: true,
-                    title: Text(
-                      r.title!,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  _RowType.note => ListTile(
-                    dense: true,
-                    title: Text(r.title!, style: Theme.of(context).textTheme.bodyMedium),
-                  ),
-                  _RowType.balance => _BalanceTile(
-                    member: r.member!,
-                    amount: r.amount!,
-                    members: members,
-                    groupId: groupId,
-                    ref: ref,
-                  ),
-                  _RowType.expense => _ExpenseTile(
-                    expense: r.expense!,
-                    members: members,
-                    groupId: groupId,
-                    ref: ref,
-                    canManage: (r.myRole == 'owner' || r.myRole == 'admin'),
-                  ),
-                  _RowType.member => _MemberTile(
-                    member: r.member!,
-                    groupId: groupId,
-                    ref: ref,
-                  ),
-                };
-              },
+              padding: const EdgeInsets.only(bottom: 96, top: 8, left: 12, right: 12),
+              children: [
+                _SectionCard(title: 'Bakiye Özeti', children: balanceItems),
+                const SizedBox(height: 12),
+                _SectionCard(title: 'Harcamalar', children: expenseItems),
+                const SizedBox(height: 12),
+                _SectionCard(title: 'Üyeler', children: memberItems),
+              ],
             );
+
+
+
+
+
+
+
+
           },
         ),
       ),
@@ -415,6 +418,7 @@ class FadedDivider extends StatelessWidget {
 
     return SizedBox(
       height: thickness,
+      width: double.infinity,
       child: DecoratedBox(
         decoration: BoxDecoration(
           gradient: LinearGradient(
@@ -453,7 +457,15 @@ class _BalanceTile extends StatelessWidget {
         radius: 14,
         child: Text((member['name'] as String).isNotEmpty ? (member['name'] as String)[0].toUpperCase() : '?'),
       ),
-      trailing: Text('$sign${amount.toStringAsFixed(2)}'),
+      trailing: Text(
+        (amount >= 0)
+            ? '+${amount.abs().toStringAsFixed(2)}₺'
+            : '-${amount.abs().toStringAsFixed(2)}₺',
+        style: TextStyle(
+          color: amount >= 0 ? Colors.green : Colors.red,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
       // İstersen burada popup menu vs. ekleyebilirsin
       subtitle: isSelf ? const Text('Sen', style: TextStyle(fontSize: 12)) : null,
     );
@@ -485,7 +497,13 @@ class _ExpenseTile extends StatelessWidget {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(amountText),
+          Text(
+            '+$amountText₺',
+            style: TextStyle(
+              color: Colors.green,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
           if (canManage) // 👈 sadece owner/admin görür
             IconButton(
               icon: const Icon(Icons.delete_outline),
@@ -528,6 +546,12 @@ class _MemberTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isSelf = (member['user_id'] == Supabase.instance.client.auth.currentUser?.id);
+    final role = member['role'] as String?;
+    final bool isAdmin = role == 'owner' || role == 'admin';
+    final String? roleLabel = (role == null)
+        ? null
+        : (role == 'member' ? 'ÜYE' : role.toString().toUpperCase());
+    final Color roleColor = isAdmin ? Colors.green : Colors.amber;
     return ListTile(
       title: Text(member['name'] as String),
       leading: CircleAvatar(
@@ -535,7 +559,81 @@ class _MemberTile extends StatelessWidget {
         child: Text((member['name'] as String).isNotEmpty ? (member['name'] as String)[0].toUpperCase() : '?'),
       ),
       subtitle: isSelf ? const Text('Sen', style: TextStyle(fontSize: 12)) : null,
+      trailing: (roleLabel == null) ? null : _RolePill(label: roleLabel, color: roleColor),
       // TODO: burada da düzenle/sil aksiyonlarını ekleyebilirsin
     );
   }
+}
+
+class _RolePill extends StatelessWidget {
+  const _RolePill({required this.label, required this.color});
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    if (label.isEmpty) return const SizedBox.shrink();
+    final bg = color.withOpacity(.12);
+    final fg = color;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: fg,
+          fontWeight: FontWeight.w600,
+          letterSpacing: .2,
+        ),
+      ),
+    );
+  }
+}
+
+class _SectionCard extends StatelessWidget {
+  const _SectionCard({required this.title, required this.children, super.key});
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      child: Padding(
+        padding: const EdgeInsets.all(12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              title,
+              style: Theme.of(context)
+                  .textTheme
+                  .titleMedium
+                  ?.copyWith(fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 8),
+            const Divider(thickness: 0.5, height: 0.5),
+            const SizedBox(height: 2),
+            ..._intersperseWithFadedDividers(children),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+List<Widget> _intersperseWithFadedDividers(List<Widget> items) {
+  if (items.isEmpty) return items;
+  final out = <Widget>[];
+  for (var i = 0; i < items.length; i++) {
+    out.add(items[i]);
+    if (i != items.length - 1) {
+      out.add(const FadedDivider()); // yanları silik, çok ince çizgi
+    }
+  }
+  return out;
 }
