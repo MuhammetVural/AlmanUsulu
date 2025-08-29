@@ -20,6 +20,9 @@ class GroupDetailPage extends ConsumerWidget {
     final membersAsync = ref.watch(membersProvider(groupId));
     final expensesAsync = ref.watch(expensesProvider(groupId));
     final balancesAsync = ref.watch(balancesProvider(groupId));
+    // 👇 Benim bu gruptaki rolüm
+    final myRoleAsync = ref.watch(myRoleForGroupProvider(groupId));
+    final String? myRole = myRoleAsync.asData?.value; // 'owner' | 'admin' | 'member' | null
 
     return Scaffold(
       appBar: AppBar(title: Text(groupName)),
@@ -76,7 +79,7 @@ class GroupDetailPage extends ConsumerWidget {
               rows.add(const _Row.note('Henüz harcama yok'));
             } else {
               for (final e in expenses) {
-                rows.add(_Row.expense(expense: e, members: members));
+                rows.add(_Row.expense(expense: e, members: members, myRole: myRole));
               }
             }
 
@@ -121,6 +124,7 @@ class GroupDetailPage extends ConsumerWidget {
                     members: members,
                     groupId: groupId,
                     ref: ref,
+                    canManage: (r.myRole == 'owner' || r.myRole == 'admin'),
                   ),
                   _RowType.member => _MemberTile(
                     member: r.member!,
@@ -278,19 +282,46 @@ class _Fab extends ConsumerWidget {
     }
 
     // Payer seçimi
-    final payerId = await showDialog<int>(
-      context: context,
-      builder: (ctx) => SimpleDialog(
-        title: const Text('Ödeyen'),
-        children: members
-            .map((m) => SimpleDialogOption(
-          onPressed: () => Navigator.pop(ctx, m['id'] as int),
-          child: Text(m['name'] as String),
-        ))
-            .toList(),
-      ),
+// Payer seçimi:
+// - member ise: otomatik kendisi
+// - owner/admin ise: istediği kişiyi seçebilir
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    if (uid == null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Oturum bulunamadı.')),
+        );
+      }
+      return;
+    }
+
+// Bu gruptaki mevcut kullanıcının member kaydını bul
+    final me = members.firstWhere(
+          (m) => m['user_id'] == uid,
+      orElse: () => throw Exception('Bu grupta üye olarak görünmüyorsunuz'),
     );
-    if (payerId == null) return;
+    final myRole = (me['role'] as String?) ?? 'member';
+
+    int? payerId;
+    if (myRole == 'owner' || myRole == 'admin') {
+      // owner/admin: payeri seçebilir
+      payerId = await showDialog<int>(
+        context: context,
+        builder: (ctx) => SimpleDialog(
+          title: const Text('Ödeyen'),
+          children: members
+              .map((m) => SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, m['id'] as int),
+            child: Text(m['name'] as String),
+          ))
+              .toList(),
+        ),
+      );
+      if (payerId == null) return;
+    } else {
+      // normal üye: her zaman kendisi
+      payerId = (me['id'] as num).toInt();
+    }
 
     // Katılımcılar (hepsi eşit bölüşüm, v1)
     final participantIds = members.map<int>((m) => m['id'] as int).toList();
@@ -332,29 +363,43 @@ class _Row {
   final double? amount;
   final Map<String, dynamic>? expense;
   final List<Map<String, dynamic>>? members;
+  final String? myRole; // owner/admin/member
 
-  const _Row._(
-      {required this.type, this.title, this.member, this.amount, this.expense, this.members});
+  const _Row._({
+    required this.type,
+    this.title,
+    this.member,
+    this.amount,
+    this.expense,
+    this.members,
+    this.myRole,
+  });
 
   const _Row.header(this.title)
       : type = _RowType.header,
         member = null,
         amount = null,
         expense = null,
-        members = null;
+        members = null,
+        myRole = null;
 
   const _Row.note(this.title)
       : type = _RowType.note,
         member = null,
         amount = null,
         expense = null,
-        members = null;
+        members = null,
+        myRole = null;
 
   factory _Row.balance({required Map<String, dynamic> member, required double amount}) =>
       _Row._(type: _RowType.balance, member: member, amount: amount);
 
-  factory _Row.expense({required Map<String, dynamic> expense, required List<Map<String, dynamic>> members}) =>
-      _Row._(type: _RowType.expense, expense: expense, members: members);
+  factory _Row.expense({
+    required Map<String, dynamic> expense,
+    required List<Map<String, dynamic>> members,
+    String? myRole,
+  }) =>
+      _Row._(type: _RowType.expense, expense: expense, members: members, myRole: myRole);
 
   factory _Row.member({required Map<String, dynamic> member}) =>
       _Row._(type: _RowType.member, member: member);
@@ -420,7 +465,8 @@ class _ExpenseTile extends StatelessWidget {
   final List<Map<String, dynamic>> members;
   final int groupId;
   final WidgetRef ref;
-  const _ExpenseTile({required this.expense, required this.members, required this.groupId, required this.ref, super.key});
+  final bool canManage;
+  const _ExpenseTile({required this.expense, required this.members, required this.groupId, required this.ref, this.canManage = false, super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -436,9 +482,39 @@ class _ExpenseTile extends StatelessWidget {
     return ListTile(
       title: Text(expense['title']?.toString() ?? '(Başlıksız)'),
       subtitle: Text('$payerName • $dateStr'),
-      trailing: Text(amountText),
-      // TODO: üç nokta menüsü / düzenle-sil aksiyonlarını buraya taşıyabilirsin
-      onTap: () {}, // detay isterse
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(amountText),
+          if (canManage) // 👈 sadece owner/admin görür
+            IconButton(
+              icon: const Icon(Icons.delete_outline),
+              onPressed: () async {
+                final confirmed = await showDialog<bool>(
+                  context: context,
+                  builder: (ctx) => AlertDialog(
+                    title: const Text('Silinsin mi?'),
+                    content: const Text('Bu harcama silinecek, emin misiniz?'),
+                    actions: [
+                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Vazgeç')),
+                      FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sil')),
+                    ],
+                  ),
+                );
+                if (confirmed == true) {
+                  await ref.read(expenseRepoProvider).softDeleteExpense(expense['id'] as int);
+                  ref.invalidate(expensesProvider(groupId));
+                  ref.invalidate(balancesProvider(groupId));
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Harcama silindi')),
+                    );
+                  }
+                }
+              },
+            ),
+        ],
+      ),
     );
   }
 }
