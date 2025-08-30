@@ -276,11 +276,6 @@ class _PrimaryButton extends StatelessWidget {
       width: double.infinity,
       height: 52,
       child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          shape: const StadiumBorder(),
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
-        ),
         onPressed: onPressed,
         child: Text(
           label,
