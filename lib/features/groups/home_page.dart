@@ -30,7 +30,10 @@ class HomePage extends ConsumerWidget {
       drawer: AppDrawer(),
       appBar: AppBar(
         title: const Text('Gruplar'),
-        actions: const [ThemeToggleIcon()],
+        actions: const [Padding(
+          padding: EdgeInsets.only(right: 12),
+          child: ThemeToggleIcon(),
+        )],
       ),
       body: RefreshIndicator(
         onRefresh: () async {
