@@ -239,7 +239,7 @@ class _BlobsBackground extends StatelessWidget {
           Positioned(
             left: -60,
             top: 180,
-            child: _Blob(color: bottomLeftColor.withOpacity(.85), size: 260),
+            child: _Blob(color: bottomLeftColor.withValues(alpha:  .85), size: 260),
           ),
           Positioned(
             right: -120,

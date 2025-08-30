@@ -9,6 +9,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../app/providers.dart';
 import '../../data/repo/auth_repo.dart';
 import '../../services/group_invite_link_service.dart';
+import '../../utils/string_utils.dart';
 import '../widgets/app_drawer.dart';
 
 class GroupDetailPage extends ConsumerWidget {
@@ -18,9 +19,6 @@ class GroupDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final membersAsync = ref.watch(membersProvider(groupId));
-    final expensesAsync = ref.watch(expensesProvider(groupId));
-    final balancesAsync = ref.watch(balancesProvider(groupId));
     // 👇 Benim bu gruptaki rolüm
     final myRoleAsync = ref.watch(myRoleForGroupProvider(groupId));
     final String? myRole = myRoleAsync.asData?.value; // 'owner' | 'admin' | 'member' | null
@@ -453,7 +451,7 @@ class _BalanceTile extends StatelessWidget {
     final isSelf = (member['user_id'] == Supabase.instance.client.auth.currentUser?.id);
     return ListTile(
       dense: true,
-      title: Text(member['name'] as String),
+      title: Text(capitalizeTr(member['name'] as String)),
       leading: CircleAvatar(
         radius: 14,
         backgroundColor: _colorFromString(member['id'].toString() + (member['name'] as String? ?? '')),
@@ -498,9 +496,18 @@ class _ExpenseTile extends StatelessWidget {
       orElse: () => {'name': 'Üye #$payerId'},
     )['name'] as String);
 
+
     return ListTile(
-      title: Text(expense['title']?.toString() ?? '(Başlıksız)'),
-      subtitle: Text('$payerName • $dateStr'),
+      leading: SoftSquareAvatar(size: 44, child: Text(
+        payerName.isNotEmpty ? payerName.trim()[0].toUpperCase() : '•',
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+        ),
+      ),),
+      title: Text(
+        capitalizeTr(expense['title']?.toString() ?? '(Başlıksız)'),
+      ),
+      subtitle: Text('${capitalizeTr(payerName)} • $dateStr'),
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -540,6 +547,7 @@ class _ExpenseTile extends StatelessWidget {
             ),
         ],
       ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
     );
   }
 }
@@ -560,7 +568,7 @@ class _MemberTile extends StatelessWidget {
         : (role == 'member' ? 'ÜYE' : role.toString().toUpperCase());
     final Color roleColor = isAdmin ? Colors.green : Colors.amber;
     return ListTile(
-      title: Text(member['name'] as String),
+      title: Text(capitalizeTr(member['name'] as String)),
       leading: CircleAvatar(
         radius: 14,
         backgroundColor: _colorFromString(member['id'].toString() + (member['name'] as String? ?? '')),
@@ -585,6 +593,45 @@ Color _colorFromString(String input) {
   final g = (hash & 0x00FF00) >> 8;
   final b = (hash & 0x0000FF);
   return Color.fromARGB(255, r, g, b).withOpacity(0.8);
+}
+
+class SoftSquareAvatar extends StatelessWidget {
+  const SoftSquareAvatar({
+    super.key,
+    required this.size,
+    required this.child,
+    this.radius = 14,
+  });
+
+  final double size;
+  final double radius;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    final bg = scheme.surface; // açık tema: beyaza yakın, karanlıkta koyu
+    final shadowColor = scheme.shadow.withOpacity(
+      Theme.of(context).brightness == Brightness.dark ? 0.25 : 0.12,
+    );
+
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(radius),
+        boxShadow: const [
+          // gölge: yumuşak ve aşağı doğru
+          BoxShadow(blurRadius: 18, offset: Offset(0, 10), spreadRadius: -2),
+        ].map((b) => b.copyWith(color: shadowColor)).toList(),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(radius),
+        child: Center(child: child),
+      ),
+    );
+  }
 }
 
 class _RolePill extends StatelessWidget {

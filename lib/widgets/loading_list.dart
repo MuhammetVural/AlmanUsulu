@@ -9,8 +9,8 @@ class LoadingList extends StatelessWidget {
     return ListView.builder(
       itemCount: 6, // kaç tane skeleton görünsün
       itemBuilder: (_, __) => Shimmer.fromColors(
-        baseColor: Colors.grey.shade800,
-        highlightColor: Colors.grey.shade700,
+        baseColor: Colors.white38,
+        highlightColor: Colors.white54,
         child: const ListTile(
           leading: CircleAvatar(radius: 14, backgroundColor: Colors.white),
           title: SizedBox(height: 12, width: double.infinity, child: DecoratedBox(decoration: BoxDecoration(color: Colors.white))),
