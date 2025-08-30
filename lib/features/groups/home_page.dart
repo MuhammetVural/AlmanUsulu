@@ -30,7 +30,10 @@ class HomePage extends ConsumerWidget {
       drawer: AppDrawer(),
       appBar: AppBar(
         title: const Text('Gruplar'),
-        actions: const [ThemeToggleIcon()],
+        actions: const [Padding(
+          padding: EdgeInsets.only(right: 12),
+          child: ThemeToggleIcon(),
+        )],
       ),
       body: RefreshIndicator(
         onRefresh: () async {
@@ -78,7 +81,7 @@ class HomePage extends ConsumerWidget {
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(18),
                       side: BorderSide(
-                        color: Theme.of(context).colorScheme.outlineVariant.withOpacity(.5),
+                        color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
                         width: 0.6,
                       ),
                     ),
@@ -133,14 +136,14 @@ class HomePage extends ConsumerWidget {
                                     Text(
                                       "Oluşturulma Tarihi: ",
                                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                        color: Theme.of(context).colorScheme.onSurface.withOpacity(.6),
+                                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
                                         fontWeight: FontWeight.w500,
                                       ),
                                     ),
                                     Text(
                                       DateFormat('dd.MM.yyyy').format(createdAt),
                                       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: Theme.of(context).colorScheme.onSurface.withOpacity(.8),
+                                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
                                       ),
                                     ),
                                   ],
@@ -416,7 +419,7 @@ class _Pill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (label.isEmpty) return const SizedBox.shrink();
-    final bg = color.withOpacity(.12);
+    final bg = color.withValues(alpha: .12);
     final fg = color;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),

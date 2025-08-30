@@ -126,10 +126,10 @@ class _Logo extends StatelessWidget {
               BoxShadow(
                 blurRadius: 28,
                 offset: const Offset(0, 12),
-                color: Colors.black.withOpacity(isDark ? 0.25 : 0.12),
+                color: Colors.black.withValues(alpha:  isDark ? .25 : .12),
               ),
             ],
-            border: Border.all(color: const Color(0xFF0E9F6E).withOpacity(0.18), width: 1),
+            border: Border.all(color: const Color(0xFF0E9F6E).withValues(alpha:  .18), width: 1),
           ),
           child: const Center(
             child: Icon(Icons.groups_2_rounded, size: 56, color: Color(0xFF0E9F6E)),
@@ -147,7 +147,7 @@ class _Logo extends StatelessWidget {
         Text(
           'Paylaş, bölüş, hesabı kapat ✨',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: (isDark ? Colors.white : Colors.black87).withOpacity(0.75),
+            color: (isDark ? Colors.white : Colors.black87).withValues(alpha: .75),
           ),
         ),
       ],
@@ -190,12 +190,12 @@ class _ProgressDotsState extends State<_ProgressDots> with SingleTickerProviderS
           children: List.generate(3, (i) {
             final v = (t + i * 0.25) % 1.0;
             final s = 6.0 + (v < 0.5 ? v : 1 - v) * 10;
-            final o = 0.4 + (v < 0.5 ? v : 1 - v) * 0.6;
+            final o = .4 + (v < .5 ? v : 1 - v) * .6;
             return Container(
               margin: const EdgeInsets.symmetric(horizontal: 5),
               width: s, height: s,
               decoration: BoxDecoration(
-                color: const Color(0xFF0E9F6E).withOpacity(o),
+                color: const Color(0xFF0E9F6E).withValues(alpha:  o),
                 shape: BoxShape.circle,
               ),
             );
