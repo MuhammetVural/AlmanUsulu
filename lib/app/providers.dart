@@ -160,6 +160,12 @@ final filteredExpensesProvider = FutureProvider.family<
   return (res as List).cast<Map<String, dynamic>>();
 });
 
+/// snackbar tasarımı
+final scaffoldMessengerKeyProvider =
+Provider<GlobalKey<ScaffoldMessengerState>>((ref) {
+  return GlobalKey<ScaffoldMessengerState>();
+});
+
 /// Optional: keep current filter in UI state per group (null = no filter)
 
 final currentExpenseFilterProvider =

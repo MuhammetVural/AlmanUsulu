@@ -8,7 +8,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../app/providers.dart';
 import '../../data/repo/auth_repo.dart';
 import '../../services/group_invite_link_service.dart';
-import 'group_detail_page.dart';
+import 'pages/group_detail_page.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});

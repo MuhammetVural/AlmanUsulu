@@ -13,6 +13,7 @@ class MyApp extends ConsumerWidget {
   final Widget? home;
   final Color? seedColor;
 
+
   const MyApp({
     super.key,
     this.home,
@@ -22,8 +23,10 @@ class MyApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final mode = ref.watch(themeModeProvider);
+    final scaffoldKey = ref.watch(scaffoldMessengerKeyProvider);
     return MaterialApp(
       debugShowCheckedModeBanner: false,
+      scaffoldMessengerKey: scaffoldKey,
       title: 'Alman Usulü',
       theme: lightTheme(),
       darkTheme: darkTheme(),
