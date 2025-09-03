@@ -11,6 +11,159 @@ import '../../data/repo/auth_repo.dart';
 import '../../services/group_invite_link_service.dart';
 import '../../utils/string_utils.dart';
 import '../widgets/app_drawer.dart';
+import 'home_page.dart';
+
+Future<void> _openExpenseFilterSheet(
+    BuildContext context,
+    WidgetRef ref,
+    int groupId,
+    List<Map<String, dynamic>> members,
+    ) async {
+  final current = ref.read(currentExpenseFilterProvider(groupId));
+  int? selPayerId = current?.payerId;
+  DateTime? selFrom = current?.fromSec == null
+      ? null
+      : DateTime.fromMillisecondsSinceEpoch(current!.fromSec! * 1000).toLocal();
+  DateTime? selTo = current?.toSec == null
+      ? null
+      : DateTime.fromMillisecondsSinceEpoch(current!.toSec! * 1000).toLocal();
+
+  await showModalBottomSheet(
+    context: context,
+    showDragHandle: true,
+    isScrollControlled: true,
+    builder: (ctx) {
+      return StatefulBuilder(
+        builder: (ctx, setState) {
+          final hasSelection = selPayerId != null || selFrom != null || selTo != null;
+          String payerLabel() {
+            if (selPayerId == null) return 'Hepsi';
+            final m = members.firstWhere(
+                  (x) => (x['id'] as num).toInt() == selPayerId,
+              orElse: () => {'name': 'Üye #$selPayerId'},
+            );
+            return (m['name']?.toString() ?? 'Üye #$selPayerId');
+          }
+
+          String dateLabel() {
+            if (selFrom == null && selTo == null) return 'Tümü';
+            String f(DateTime d) => DateFormat('dd.MM.yyyy').format(d);
+            if (selFrom != null && selTo != null) return '${f(selFrom!)} → ${f(selTo!)}';
+            if (selFrom != null) return '${f(selFrom!)} → ∞';
+            return '−∞ → ${f(selTo!)}';
+          }
+
+          return SafeArea(
+            child: Padding(
+              padding: EdgeInsets.only(
+                bottom: MediaQuery.of(ctx).viewInsets.bottom + 12,
+                left: 16,
+                right: 16,
+                top: 8,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Harcamaları Filtrele',
+                      style: Theme.of(ctx).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 8),
+                  const Divider(height: 0.5),
+                  const SizedBox(height: 4),
+
+                  // Ödeyen
+                  ListTile(
+                    leading: const Icon(Icons.person_outline),
+                    title: const Text('Ödeyen'),
+                    subtitle: Text(payerLabel()),
+                    onTap: () async {
+                      final id = await showDialog<int>(
+                        context: ctx,
+                        builder: (dctx) => SimpleDialog(
+                          title: const Text('Ödeyen seç'),
+                          children: [
+                            SimpleDialogOption(
+                              onPressed: () => Navigator.pop(dctx, null),
+                              child: const Text('Hepsi'),
+                            ),
+                            ...members.map((m) => SimpleDialogOption(
+                              onPressed: () => Navigator.pop(dctx, (m['id'] as num).toInt()),
+                              child: Text(m['name']?.toString() ?? 'Üye'),
+                            )),
+                          ],
+                        ),
+                      );
+                      setState(() => selPayerId = id);
+                    },
+                  ),
+
+                  // Tarih aralığı
+                  ListTile(
+                    leading: const Icon(Icons.date_range),
+                    title: const Text('Tarih Aralığı'),
+                    subtitle: Text(dateLabel()),
+                    onTap: () async {
+                      final now = DateTime.now();
+                      final initialStart = selFrom ?? now.subtract(const Duration(days: 30));
+                      final initialEnd = selTo ?? now;
+                      final picked = await showDateRangePicker(
+                        context: ctx,
+                        firstDate: DateTime(2000),
+                        lastDate: DateTime(now.year + 2),
+                        initialDateRange: DateTimeRange(start: initialStart, end: initialEnd),
+                        currentDate: now,
+                        helpText: 'Tarih aralığı seç',
+                      );
+                      if (picked != null) {
+                        setState(() {
+                          selFrom = picked.start;
+                          selTo = picked.end;
+                        });
+                      }
+                    },
+                  ),
+
+                  const SizedBox(height: 8),
+                  Row(
+                    children: [
+                      TextButton.icon(
+                        onPressed: hasSelection
+                            ? () {
+                          setState(() {
+                            selPayerId = null;
+                            selFrom = null;
+                            selTo = null;
+                          });
+                        }
+                            : null,
+                        icon: const Icon(Icons.clear),
+                        label: const Text('Temizle'),
+                      ),
+                      const Spacer(),
+                      TextButton(
+                        onPressed: () {
+                          if (selPayerId == null && selFrom == null && selTo == null) {
+                            clearExpenseFilter(ref, groupId);
+                          } else {
+                            setExpenseFilter(ref, groupId,
+                                payerId: selPayerId, from: selFrom, to: selTo);
+                          }
+                          Navigator.pop(ctx);
+                        },
+                        child: const Text('Uygula'),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+    },
+  );
+}
 
 class GroupDetailPage extends ConsumerWidget {
   final int groupId;
@@ -22,9 +175,15 @@ class GroupDetailPage extends ConsumerWidget {
     // 👇 Benim bu gruptaki rolüm
     final myRoleAsync = ref.watch(myRoleForGroupProvider(groupId));
     final String? myRole = myRoleAsync.asData?.value; // 'owner' | 'admin' | 'member' | null
+    final hasFilter = ref.watch(currentExpenseFilterProvider(groupId)) != null;
 
     return Scaffold(
-      appBar: AppBar(title: Text(groupName)),
+      appBar: AppBar(
+        title: Text(groupName),
+        actions: const [Padding(
+          padding: EdgeInsets.only(right: 12),
+          child: ThemeToggleIcon(),
+        )],),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(membersProvider(groupId));
@@ -34,7 +193,7 @@ class GroupDetailPage extends ConsumerWidget {
         child: Consumer(
           builder: (context, ref, _) {
             final membersAsync = ref.watch(membersProvider(groupId));
-            final expensesAsync = ref.watch(expensesProvider(groupId));
+            final expensesAsync = ref.watch(visibleExpensesProvider(groupId));
             final balancesAsync = ref.watch(balancesProvider(groupId));
 
             // Hepsi aynı anda gelsin istiyorsak:
@@ -123,7 +282,35 @@ class GroupDetailPage extends ConsumerWidget {
               children: [
                 _SectionCard(title: 'Bakiye Özeti', children: balanceItems),
                 const SizedBox(height: 12),
-                _SectionCard(title: 'Harcamalar', children: expenseItems),
+                _SectionCard(
+                  title: 'Harcamalar',
+                  header: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Harcamalar',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      IconButton(
+                        tooltip: hasFilter ? 'Filtre aktif — değiştir' : 'Filtrele',
+                        icon: Icon(
+                          Icons.filter_list,
+                          color: hasFilter
+                              ? Theme.of(context).colorScheme.primary
+                              : Theme.of(context).iconTheme.color,
+                        ),
+                        onPressed: () async {
+                          final members = membersAsync.value ?? [];
+                          await _openExpenseFilterSheet(context, ref, groupId, members);
+                        },
+                      ),
+                    ],
+                  ),
+                  children: expenseItems,
+                ),
                 const SizedBox(height: 12),
                 _SectionCard(title: 'Üyeler', children: memberItems),
               ],
@@ -196,6 +383,8 @@ class _Fab extends ConsumerWidget {
           if (includePast == true) {
             await ref.read(memberRepoProvider).includeMemberInPastExpensesFast(groupId, newMemberId);
             ref.invalidate(expensesProvider(groupId));
+            ref.invalidate(filteredExpensesProvider);
+            ref.invalidate(visibleExpensesProvider(groupId));
             ref.invalidate(balancesProvider(groupId));
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -336,6 +525,8 @@ class _Fab extends ConsumerWidget {
       participantIds: participantIds,
     );
     ref.invalidate(expensesProvider(groupId));
+    ref.invalidate(filteredExpensesProvider);
+    ref.invalidate(visibleExpensesProvider(groupId));
     ref.invalidate(balancesProvider(groupId));
   }
 
@@ -536,6 +727,8 @@ class _ExpenseTile extends StatelessWidget {
                 if (confirmed == true) {
                   await ref.read(expenseRepoProvider).softDeleteExpense(expense['id'] as int);
                   ref.invalidate(expensesProvider(groupId));
+                  ref.invalidate(filteredExpensesProvider);
+                  ref.invalidate(visibleExpensesProvider(groupId));
                   ref.invalidate(balancesProvider(groupId));
                   if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -663,9 +856,11 @@ class _RolePill extends StatelessWidget {
 }
 
 class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.title, required this.children, super.key});
+  const _SectionCard({required this.title, required this.children, this.header, super.key});
   final String title;
   final List<Widget> children;
+  final Widget? header;
+
 
   @override
   Widget build(BuildContext context) {
@@ -677,7 +872,7 @@ class _SectionCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
+            header ?? Text(
               title,
               style: Theme.of(context)
                   .textTheme

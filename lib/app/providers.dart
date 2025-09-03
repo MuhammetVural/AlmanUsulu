@@ -102,6 +102,112 @@ final expensesProvider = FutureProvider.family<List<Map<String, dynamic>>, int>(
   },
 );
 
+/// -----------------------------------------------
+/// EXPENSE FILTERING (payer/date range)
+/// -----------------------------------------------
+/// Immutable key for filtering expenses in a group.
+class ExpenseFilter {
+  final int groupId;
+  final int? payerId; // only expenses paid by this member
+  final int? fromSec; // created_at >= fromSec (Unix seconds)
+  final int? toSec;   // created_at <= toSec   (Unix seconds)
+
+  const ExpenseFilter({
+    required this.groupId,
+    this.payerId,
+    this.fromSec,
+    this.toSec,
+  });
+
+  @override
+  bool operator ==(Object other) {
+    return other is ExpenseFilter &&
+        other.groupId == groupId &&
+        other.payerId == payerId &&
+        other.fromSec == fromSec &&
+        other.toSec == toSec;
+  }
+
+  @override
+  int get hashCode => Object.hash(groupId, payerId, fromSec, toSec);
+}
+
+/// Filtered expenses for a group. Supports payer and date range.
+final filteredExpensesProvider = FutureProvider.family<
+    List<Map<String, dynamic>>, ExpenseFilter>((ref, filter) async {
+  // Re-fetch on auth changes
+  final _ = ref.watch(authUserIdProvider);
+  final client = ref.read(supabaseClientProvider);
+
+  var query = client
+      .from('expenses')
+      .select()
+      .eq('group_id', filter.groupId)
+      .isFilter('deleted_at', null);
+
+  if (filter.payerId != null) {
+    query = query.eq('payer_id', filter.payerId!);
+  }
+  if (filter.fromSec != null) {
+    query = query.gte('created_at', filter.fromSec!);
+  }
+  if (filter.toSec != null) {
+    query = query.lte('created_at', filter.toSec!);
+  }
+
+  // Newest first for convenience in UI lists
+  final res = await query.order('id', ascending: false);
+  return (res as List).cast<Map<String, dynamic>>();
+});
+
+/// Optional: keep current filter in UI state per group (null = no filter)
+
+final currentExpenseFilterProvider =
+    StateProvider.family<ExpenseFilter?, int>((ref, groupId) => null);
+
+/// -----------------------------------------------
+/// VISIBLE EXPENSES (UI tarafı tek provider izler)
+/// -----------------------------------------------
+/// UI'de sadece bunu watch etmek yeterli. Eğer filtre varsa filtreli,
+/// yoksa tüm giderleri döner.
+final visibleExpensesProvider = FutureProvider.family<
+    List<Map<String, dynamic>>, int>((ref, groupId) async {
+  final filter = ref.watch(currentExpenseFilterProvider(groupId));
+  if (filter == null) {
+    return ref.watch(expensesProvider(groupId).future);
+  } else {
+    return ref.watch(filteredExpensesProvider(filter).future);
+  }
+});
+
+/// Küçük yardımcılar: UI'den kolay set/clear
+int? _toSec(DateTime? dt) => dt == null ? null : dt.millisecondsSinceEpoch ~/ 1000;
+
+void setExpenseFilter(
+  WidgetRef ref,
+  int groupId, {
+  int? payerId,
+  DateTime? from,
+  DateTime? to,
+}) {
+  ref.read(currentExpenseFilterProvider(groupId).notifier).state = ExpenseFilter(
+    groupId: groupId,
+    payerId: payerId,
+    fromSec: _toSec(from),
+    toSec: _toSec(to),
+  );
+}
+
+void clearExpenseFilter(WidgetRef ref, int groupId) {
+  ref.read(currentExpenseFilterProvider(groupId).notifier).state = null;
+}
+
+
+
+
+
+
+
 /// Basit bakiye hesaplayıcı (eşit bölüşme)
 final balancesProvider = FutureProvider.family<Map<int, double>, int>((
   ref,

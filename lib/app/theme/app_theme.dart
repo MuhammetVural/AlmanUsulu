@@ -108,7 +108,7 @@ ThemeData lightTheme() {
         backgroundColor: _primary, foregroundColor: Colors.white,
         textStyle: const TextStyle(fontWeight: FontWeight.w700),
         padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 18),
-        shape: const StadiumBorder(),
+        shape: const StadiumBorder(side: BorderSide.none),
       ),
     ),
     // Chip (filter etiketleri)
