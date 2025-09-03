@@ -113,6 +113,21 @@ class MemberRepo {
         .eq('id', memberId)
         .isFilter('deleted_at', null);
   }
+
+  Future<void> updateMemberRole({
+    required int groupId,
+    required int memberId,
+    required String role, // 'admin' | 'member'
+  }) async {
+    // Güvenlik: sadece aktif kaydı güncelle
+    await _client
+        .from('members')
+        .update({'role': role, 'updated_at': DateTime.now().millisecondsSinceEpoch ~/ 1000})
+        .eq('id', memberId)
+        .eq('group_id', groupId)
+        .isFilter('deleted_at', null);
+  }
+
   Future<void> includeMemberInPastExpenses(int groupId, int memberId) async {
     final expenses = await _client
         .from('expenses')

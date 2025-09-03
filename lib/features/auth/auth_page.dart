@@ -239,7 +239,7 @@ class _BlobsBackground extends StatelessWidget {
           Positioned(
             left: -60,
             top: 180,
-            child: _Blob(color: bottomLeftColor.withOpacity(.85), size: 260),
+            child: _Blob(color: bottomLeftColor.withValues(alpha:  .85), size: 260),
           ),
           Positioned(
             right: -120,
@@ -276,11 +276,6 @@ class _PrimaryButton extends StatelessWidget {
       width: double.infinity,
       height: 52,
       child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          shape: const StadiumBorder(),
-          backgroundColor: Colors.black,
-          foregroundColor: Colors.white,
-        ),
         onPressed: onPressed,
         child: Text(
           label,

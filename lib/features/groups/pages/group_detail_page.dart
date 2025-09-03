@@ -2,14 +2,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 import 'package:local_alman_usulu/widgets/loading_list.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../app/providers.dart';
-import '../../data/repo/auth_repo.dart';
-import '../../services/group_invite_link_service.dart';
-import '../widgets/app_drawer.dart';
+import '../../../app/providers.dart';
+import '../../../data/repo/auth_repo.dart';
+import '../../../services/group_invite_link_service.dart';
+import '../home_page.dart';
+import '../presentation/sheets/expense_filter_sheet.dart';
+import '../presentation/widgets/balance_tile.dart';
+import '../presentation/widgets/expense_tile.dart';
+import '../presentation/widgets/member_tile.dart';
+import '../presentation/widgets/section_card.dart';
 
 class GroupDetailPage extends ConsumerWidget {
   final int groupId;
@@ -18,15 +22,18 @@ class GroupDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final membersAsync = ref.watch(membersProvider(groupId));
-    final expensesAsync = ref.watch(expensesProvider(groupId));
-    final balancesAsync = ref.watch(balancesProvider(groupId));
     // 👇 Benim bu gruptaki rolüm
     final myRoleAsync = ref.watch(myRoleForGroupProvider(groupId));
     final String? myRole = myRoleAsync.asData?.value; // 'owner' | 'admin' | 'member' | null
+    final hasFilter = ref.watch(currentExpenseFilterProvider(groupId)) != null;
 
     return Scaffold(
-      appBar: AppBar(title: Text(groupName)),
+      appBar: AppBar(
+        title: Text(groupName),
+        actions: const [Padding(
+          padding: EdgeInsets.only(right: 12),
+          child: ThemeToggleIcon(),
+        )],),
       body: RefreshIndicator(
         onRefresh: () async {
           ref.invalidate(membersProvider(groupId));
@@ -36,7 +43,7 @@ class GroupDetailPage extends ConsumerWidget {
         child: Consumer(
           builder: (context, ref, _) {
             final membersAsync = ref.watch(membersProvider(groupId));
-            final expensesAsync = ref.watch(expensesProvider(groupId));
+            final expensesAsync = ref.watch(visibleExpensesProvider(groupId));
             final balancesAsync = ref.watch(balancesProvider(groupId));
 
             // Hepsi aynı anda gelsin istiyorsak:
@@ -73,7 +80,7 @@ class GroupDetailPage extends ConsumerWidget {
                   orElse: () => {'name': 'Üye #${entry.key}', 'user_id': null, 'id': entry.key},
                 );
                 balanceItems.add(
-                  _BalanceTile(
+                  BalanceTile(
                     member: member,
                     amount: entry.value,
                     members: members,
@@ -93,7 +100,7 @@ class GroupDetailPage extends ConsumerWidget {
             } else {
               for (final e in expenses) {
                 expenseItems.add(
-                  _ExpenseTile(
+                  ExpenseTile(
                     expense: e,
                     members: members,
                     groupId: groupId,
@@ -113,7 +120,7 @@ class GroupDetailPage extends ConsumerWidget {
             } else {
               for (final m in members) {
                 memberItems.add(
-                  _MemberTile(member: m, groupId: groupId, ref: ref),
+                  MemberTile(member: m, groupId: groupId,),
                 );
               }
             }
@@ -123,11 +130,25 @@ class GroupDetailPage extends ConsumerWidget {
               physics: const AlwaysScrollableScrollPhysics(),
               padding: const EdgeInsets.only(bottom: 96, top: 8, left: 12, right: 12),
               children: [
-                _SectionCard(title: 'Bakiye Özeti', children: balanceItems),
+                SectionCard(title: 'Bakiye Özeti', children: balanceItems),
                 const SizedBox(height: 12),
-                _SectionCard(title: 'Harcamalar', children: expenseItems),
+                SectionCard(
+                  title: 'Harcamalar',
+                  header: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('Harcamalar', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
+                      IconButton(
+                        tooltip: hasFilter ? 'Filtre aktif — değiştir' : 'Filtrele',
+                        icon: Icon(Icons.filter_list, color: hasFilter ? Theme.of(context).colorScheme.primary : null),
+                        onPressed: () => openExpenseFilterSheet(context, ref, groupId, members),
+                      ),
+                    ],
+                  ),
+                  children: expenseItems,
+                ),
                 const SizedBox(height: 12),
-                _SectionCard(title: 'Üyeler', children: memberItems),
+                SectionCard(title: 'Üyeler', children: memberItems),
               ],
             );
 
@@ -198,6 +219,8 @@ class _Fab extends ConsumerWidget {
           if (includePast == true) {
             await ref.read(memberRepoProvider).includeMemberInPastExpensesFast(groupId, newMemberId);
             ref.invalidate(expensesProvider(groupId));
+            ref.invalidate(filteredExpensesProvider);
+            ref.invalidate(visibleExpensesProvider(groupId));
             ref.invalidate(balancesProvider(groupId));
             if (context.mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -338,6 +361,8 @@ class _Fab extends ConsumerWidget {
       participantIds: participantIds,
     );
     ref.invalidate(expensesProvider(groupId));
+    ref.invalidate(filteredExpensesProvider);
+    ref.invalidate(visibleExpensesProvider(groupId));
     ref.invalidate(balancesProvider(groupId));
   }
 
@@ -358,304 +383,4 @@ class _Fab extends ConsumerWidget {
   }
 }
 
-enum _RowType { header, note, balance, expense, member }
 
-class _Row {
-  final _RowType type;
-  final String? title;
-  final Map<String, dynamic>? member;
-  final double? amount;
-  final Map<String, dynamic>? expense;
-  final List<Map<String, dynamic>>? members;
-  final String? myRole; // owner/admin/member
-
-  const _Row._({
-    required this.type,
-    this.title,
-    this.member,
-    this.amount,
-    this.expense,
-    this.members,
-    this.myRole,
-  });
-
-  const _Row.header(this.title)
-      : type = _RowType.header,
-        member = null,
-        amount = null,
-        expense = null,
-        members = null,
-        myRole = null;
-
-  const _Row.note(this.title)
-      : type = _RowType.note,
-        member = null,
-        amount = null,
-        expense = null,
-        members = null,
-        myRole = null;
-
-  factory _Row.balance({required Map<String, dynamic> member, required double amount}) =>
-      _Row._(type: _RowType.balance, member: member, amount: amount);
-
-  factory _Row.expense({
-    required Map<String, dynamic> expense,
-    required List<Map<String, dynamic>> members,
-    String? myRole,
-  }) =>
-      _Row._(type: _RowType.expense, expense: expense, members: members, myRole: myRole);
-
-  factory _Row.member({required Map<String, dynamic> member}) =>
-      _Row._(type: _RowType.member, member: member);
-}
-
-class FadedDivider extends StatelessWidget {
-  const FadedDivider({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final dpr = MediaQuery.of(context).devicePixelRatio;
-    final thickness = (1.0 / dpr).clamp(0.4, 1.0); // hairline ~ süper ince
-
-    return SizedBox(
-      height: thickness,
-      width: double.infinity,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.centerLeft,
-            end: Alignment.centerRight,
-            colors: [
-              Colors.transparent,
-              Theme.of(context).colorScheme.outlineVariant.withOpacity(.35),
-              Theme.of(context).colorScheme.outlineVariant.withOpacity(.35),
-              Colors.transparent,
-            ],
-            stops: const [0.0, 0.15, 0.85, 1.0], // kenarlarda silikleşme
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _BalanceTile extends StatelessWidget {
-  final Map<String, dynamic> member;
-  final double amount;
-  final List<Map<String, dynamic>> members;
-  final int groupId;
-  final WidgetRef ref;
-  const _BalanceTile({required this.member, required this.amount, required this.members, required this.groupId, required this.ref, super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final sign = amount >= 0 ? '+' : '';
-    final isSelf = (member['user_id'] == Supabase.instance.client.auth.currentUser?.id);
-    return ListTile(
-      dense: true,
-      title: Text(member['name'] as String),
-      leading: CircleAvatar(
-        radius: 14,
-        backgroundColor: _colorFromString(member['id'].toString() + (member['name'] as String? ?? '')),
-        child: Text(
-          (member['name'] as String).isNotEmpty
-              ? (member['name'] as String)[0].toUpperCase()
-              : '?',
-          style: const TextStyle(color: Colors.white),
-        ),
-      ),
-      trailing: Text(
-        (amount >= 0)
-            ? '+${amount.abs().toStringAsFixed(2)}₺'
-            : '-${amount.abs().toStringAsFixed(2)}₺',
-        style: TextStyle(
-          color: amount >= 0 ? Colors.green : Colors.red,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
-      // İstersen burada popup menu vs. ekleyebilirsin
-      subtitle: isSelf ? const Text('Sen', style: TextStyle(fontSize: 12)) : null,
-    );
-  }
-}
-
-class _ExpenseTile extends StatelessWidget {
-  final Map<String, dynamic> expense;
-  final List<Map<String, dynamic>> members;
-  final int groupId;
-  final WidgetRef ref;
-  final bool canManage;
-  const _ExpenseTile({required this.expense, required this.members, required this.groupId, required this.ref, this.canManage = false, super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final ts = DateTime.fromMillisecondsSinceEpoch((expense['created_at'] as int) * 1000).toLocal();
-    final dateStr = DateFormat('dd-MM-yyyy | HH:mm').format(ts);
-    final amountText = (expense['amount'] as num).toStringAsFixed(2);
-    final payerId = expense['payer_id'] as int;
-    final payerName = (members.firstWhere(
-          (m) => m['id'] == payerId,
-      orElse: () => {'name': 'Üye #$payerId'},
-    )['name'] as String);
-
-    return ListTile(
-      title: Text(expense['title']?.toString() ?? '(Başlıksız)'),
-      subtitle: Text('$payerName • $dateStr'),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            '+$amountText₺',
-            style: TextStyle(
-              color: Colors.green,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (canManage) // 👈 sadece owner/admin görür
-            IconButton(
-              icon: const Icon(Icons.delete_outline),
-              onPressed: () async {
-                final confirmed = await showDialog<bool>(
-                  context: context,
-                  builder: (ctx) => AlertDialog(
-                    title: const Text('Silinsin mi?'),
-                    content: const Text('Bu harcama silinecek, emin misiniz?'),
-                    actions: [
-                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Vazgeç')),
-                      FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Sil')),
-                    ],
-                  ),
-                );
-                if (confirmed == true) {
-                  await ref.read(expenseRepoProvider).softDeleteExpense(expense['id'] as int);
-                  ref.invalidate(expensesProvider(groupId));
-                  ref.invalidate(balancesProvider(groupId));
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Harcama silindi')),
-                    );
-                  }
-                }
-              },
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _MemberTile extends StatelessWidget {
-  final Map<String, dynamic> member;
-  final int groupId;
-  final WidgetRef ref;
-  const _MemberTile({required this.member, required this.groupId, required this.ref, super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final isSelf = (member['user_id'] == Supabase.instance.client.auth.currentUser?.id);
-    final role = member['role'] as String?;
-    final bool isAdmin = role == 'owner' || role == 'admin';
-    final String? roleLabel = (role == null)
-        ? null
-        : (role == 'member' ? 'ÜYE' : role.toString().toUpperCase());
-    final Color roleColor = isAdmin ? Colors.green : Colors.amber;
-    return ListTile(
-      title: Text(member['name'] as String),
-      leading: CircleAvatar(
-        radius: 14,
-        backgroundColor: _colorFromString(member['id'].toString() + (member['name'] as String? ?? '')),
-        child: Text(
-          (member['name'] as String).isNotEmpty
-              ? (member['name'] as String)[0].toUpperCase()
-              : '?',
-          style: const TextStyle(color: Colors.white),
-        ),
-      ),
-      subtitle: isSelf ? const Text('Sen', style: TextStyle(fontSize: 12)) : null,
-      trailing: (roleLabel == null) ? null : _RolePill(label: roleLabel, color: roleColor),
-      // TODO: burada da düzenle/sil aksiyonlarını ekleyebilirsin
-    );
-  }
-}
-
-// Helper function for generating a random color from a string (member id + name)
-Color _colorFromString(String input) {
-  final hash = input.hashCode;
-  final r = (hash & 0xFF0000) >> 16;
-  final g = (hash & 0x00FF00) >> 8;
-  final b = (hash & 0x0000FF);
-  return Color.fromARGB(255, r, g, b).withOpacity(0.8);
-}
-
-class _RolePill extends StatelessWidget {
-  const _RolePill({required this.label, required this.color});
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    if (label.isEmpty) return const SizedBox.shrink();
-    final bg = color.withOpacity(.12);
-    final fg = color;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: fg,
-          fontWeight: FontWeight.w600,
-          letterSpacing: .2,
-        ),
-      ),
-    );
-  }
-}
-
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.title, required this.children, super.key});
-  final String title;
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w700),
-            ),
-            const SizedBox(height: 8),
-            const Divider(thickness: 0.5, height: 0.5),
-            const SizedBox(height: 2),
-            ..._intersperseWithFadedDividers(children),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-List<Widget> _intersperseWithFadedDividers(List<Widget> items) {
-  if (items.isEmpty) return items;
-  final out = <Widget>[];
-  for (var i = 0; i < items.length; i++) {
-    out.add(items[i]);
-    if (i != items.length - 1) {
-      out.add(const FadedDivider()); // yanları silik, çok ince çizgi
-    }
-  }
-  return out;
-}
