@@ -9,6 +9,7 @@ ThemeData lightTheme() {
   const Color _card     = Colors.white;      // kart/input
   const Color _primary  = Color(0xFF2BB673); // buton/aktif
   const Color _outline  = Color(0xFFE2E4EA);
+  const Color _grey  = Color(0xFF959595);
 
   return ThemeData(
     useMaterial3: true,
@@ -52,16 +53,16 @@ ThemeData lightTheme() {
       prefixIconColor: scheme.onSurfaceVariant.withValues(alpha: .7),
       suffixIconColor: scheme.onSurfaceVariant.withValues(alpha: .7),
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(28),
         borderSide: const BorderSide(color: _outline, width: 1),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: _outline, width: 1),
+        borderRadius: BorderRadius.circular(28),
+        borderSide: const BorderSide(color: _outline, width: 0.5),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: _primary, width: 1.2),
+        borderRadius: BorderRadius.circular(28),
+        borderSide: const BorderSide(color: _grey, width: 1.2),
       ),
       contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
     ),
@@ -79,6 +80,7 @@ ThemeData lightTheme() {
         fieldPadding: EdgeInsets.symmetric(vertical: 16, horizontal: 20),
       ),
     ],
+
     listTileTheme: ListTileThemeData(
       minLeadingWidth: 44,
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
@@ -148,9 +150,11 @@ ThemeData lightTheme() {
 ThemeData darkTheme() {
   final scheme = ColorScheme.fromSeed(seedColor: const Color(0xFF2BB673), brightness: Brightness.dark);
   final Color _bg = scheme.surface;
+  final Color _border = Colors.white;
   final Color _card = scheme.surfaceContainerLow;
   const Color _primary = Color(0xFF2BB673);
   final Color _outline = scheme.outlineVariant.withValues(alpha: .35);
+
 
   return ThemeData(
     useMaterial3: true,
@@ -191,15 +195,19 @@ ThemeData darkTheme() {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
     ),
 
+
     inputDecorationTheme: InputDecorationTheme(
       filled: true, fillColor: _card,
       hintStyle: TextStyle(color: scheme.onSurface.withValues(alpha: .4)),
       prefixIconColor: scheme.onSurfaceVariant.withValues(alpha: .7),
       suffixIconColor: scheme.onSurfaceVariant.withValues(alpha: .7),
-      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: _outline, width: 1)),
-      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: _outline, width: 1)),
-      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: const BorderSide(color: _primary, width: 1.2)),
-      contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(14), borderSide: BorderSide(color: scheme.onSurface.withValues(alpha: .4), width: 1)),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide: BorderSide(color: scheme.onSurface.withValues(alpha: .4), width: 0.5)),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(28), borderSide:  BorderSide(color: scheme.onSurface.withValues(alpha: .4), width: 1)),
+      contentPadding: const EdgeInsets.symmetric(
+        vertical: 16,
+        horizontal: 20,
+      ),
     ),
 
     dividerTheme: DividerThemeData(color: _outline, thickness: .5, space: 0),
