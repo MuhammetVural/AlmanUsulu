@@ -4,8 +4,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../app/auth_gate.dart';
 import '../../app/providers.dart';
 import '../../core/ui/notifications.dart';
+import '../groups/home_page.dart';
 
 /// FutureProvider to fetch the current user's member row from Supabase.
 final currentMemberProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
@@ -100,6 +102,11 @@ class AppDrawer extends ConsumerWidget {
             await sb.auth.signOut();
             if (context.mounted) {
               Navigator.of(context).pop();
+              // Tüm stack'i temizle ve köke `AuthGate` ile dön
+              Navigator.of(context).pushAndRemoveUntil(
+                MaterialPageRoute(builder: (_) => const AuthGate(child: HomePage())),
+                    (route) => false,
+              );
               showAppSnack(
                 ref,
                 title: 'common.info'.tr(),
