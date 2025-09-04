@@ -10,6 +10,7 @@ import '../../app/providers.dart';
 import '../../data/repo/auth_repo.dart';
 import '../../services/group_invite_link_service.dart';
 import 'pages/group_detail_page.dart';
+import '../../core/ui/notifications.dart';
 
 class HomePage extends ConsumerWidget {
   const HomePage({super.key});
@@ -31,17 +32,15 @@ class HomePage extends ConsumerWidget {
       drawer: AppDrawer(),
       appBar: AppBar(
         title:  Text('group.title'.tr()),
-        actions:
-          const [
-            Padding(
-              padding: EdgeInsets.only(right: 4),
-              child: LanguageToggleIcon(), // ⬅️ buraya geldi
-            ),
-            Padding(
-              padding: EdgeInsets.only(right: 12),
-              child: ThemeToggleIcon(),
-        ),
-
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 4),
+            child: LanguageToggleIcon(),
+          ),
+          Padding(
+            padding: EdgeInsets.only(right: 12),
+            child: ThemeToggleIcon(),
+          ),
         ],
       ),
       body: RefreshIndicator(
@@ -195,8 +194,12 @@ class HomePage extends ConsumerWidget {
                                         await ref.read(groupRepoProvider).updateGroupName(id, newName);
                                         ref.invalidate(groupsProvider);
                                         if (context.mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar( SnackBar(content: Text('group.name_update'.tr())));
+                                          showAppSnack(
+                                            ref,
+                                            title: 'common.success'.tr(),
+                                            message: 'group.name_update'.tr(),
+                                            type: AppNotice.success,
+                                          );
                                         }
                                       },
                                     ),
@@ -222,8 +225,11 @@ class HomePage extends ConsumerWidget {
                                           final role = rows.first['role'] as String?;
                                           if (role == 'owner' || role == 'admin') {
                                             if (context.mounted) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                 SnackBar(content: Text('group.cannot_leave_admin'.tr())),
+                                              showAppSnack(
+                                                ref,
+                                                title: 'common.failed'.tr(),
+                                                message: 'group.cannot_leave_admin'.tr(),
+                                                type: AppNotice.error,
                                               );
                                             }
                                             return;
@@ -246,8 +252,12 @@ class HomePage extends ConsumerWidget {
                                         await ref.read(memberRepoProvider).leaveGroup(id);
                                         ref.invalidate(groupsProvider);
                                         if (context.mounted) {
-                                          ScaffoldMessenger.of(context)
-                                              .showSnackBar( SnackBar(content: Text('group.you_left'.tr())));
+                                          showAppSnack(
+                                            ref,
+                                            title: 'common.info'.tr(),
+                                            message: 'group.you_left'.tr(),
+                                            type: AppNotice.info,
+                                          );
                                         }
                                       },
                                     ),
@@ -296,8 +306,11 @@ class HomePage extends ConsumerWidget {
                                             await ref.read(groupRepoProvider).softDeleteGroup(id);
                                             ref.invalidate(groupsProvider);
                                             if (context.mounted) {
-                                              ScaffoldMessenger.of(context).showSnackBar(
-                                                 SnackBar(content: Text('group.deleted'.tr())),
+                                              showAppSnack(
+                                                ref,
+                                                title: 'common.success'.tr(),
+                                                message: 'group.deleted'.tr(),
+                                                type: AppNotice.success,
                                               );
                                             }
                                           },
@@ -309,7 +322,7 @@ class HomePage extends ConsumerWidget {
                                       icon: const Icon(Icons.share, size: 20),
                                       tooltip: 'group.invite_link'.tr(),
                                       onPressed: () async {
-                                        final ok = await ensureSignedIn(context);
+                                        final ok = await ensureSignedIn(context, ref);
                                         if (!ok) return;
 
                                         final groupId = g['id'] as int;
@@ -329,8 +342,11 @@ class HomePage extends ConsumerWidget {
                                                   onTap: () async {
                                                     await Clipboard.setData(ClipboardData(text: url));
                                                     Navigator.pop(ctx);
-                                                    ScaffoldMessenger.of(context).showSnackBar(
-                                                       SnackBar(content: Text('group.invite_copied'.tr())),
+                                                    showAppSnack(
+                                                      ref,
+                                                      title: 'common.info'.tr(),
+                                                      message: 'group.invite_copied'.tr(),
+                                                      type: AppNotice.info,
                                                     );
                                                   },
                                                 ),
@@ -383,8 +399,11 @@ class HomePage extends ConsumerWidget {
           ref.invalidate(groupsProvider);
 
           if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-               SnackBar(content: Text('group.added'.tr())),
+            showAppSnack(
+              ref,
+              title: 'common.success'.tr(),
+              message: 'group.added'.tr(),
+              type: AppNotice.success,
             );
           }
         },

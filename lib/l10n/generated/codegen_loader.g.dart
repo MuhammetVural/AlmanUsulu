@@ -24,7 +24,11 @@ class CodegenLoader extends AssetLoader{
     "yes": "Evet",
     "no": "Hayır",
     "delete": "Sil",
-    "error": "Hata: {0}"
+    "error": "Hata: {0}",
+    "success": "Başarılı",
+    "failed": "Başarısız",
+    "attention": "Uyarı",
+    "info": "Bilgilendirme"
   },
   "group": {
     "title": "Gruplar",
@@ -49,8 +53,8 @@ class CodegenLoader extends AssetLoader{
     "invite_share": "Paylaş (WhatsApp / Instagram / …)",
     "create_invite": "Davetiye Oluştur",
     "added": "Grup eklendi",
-    "name_title": "Grup adı",
-    "name_hint2": "ör. Ev Arkadaşları"
+    "name_title": "Grup Ekle",
+    "name_hint2": "ör. Mangal Etkinliği"
   },
   "groupDetail": {
     "balance_summary": "Bakiye Özeti",
@@ -90,6 +94,30 @@ class CodegenLoader extends AssetLoader{
   "snack": {
     "made_admin": "Admin yapıldı",
     "removed_admin": "Adminlik kaldırıldı"
+  },
+  "appDrawer": {
+    "exit_login": "Çıkış yapıldı",
+    "exit": "Çıkış yap",
+    "name_update": "İsim güncellendi",
+    "name_edit": "İsmi düzenle"
+  },
+  "auth": {
+    "title_login": "Tekrar Hoş Geldiniz!",
+    "title_signup": "Hesap Oluştur :)",
+    "subtitle_login": "E-posta ve şifre ile giriş yapabilirsiniz",
+    "subtitle_signup": "E-posta ve şifre ile kaydolabilirsiniz",
+    "field_email": "E-posta",
+    "field_password": "Şifre",
+    "btn_login": "Giriş Yap",
+    "btn_signup": "Kayıt Ol",
+    "resend_title": "Doğrulama e-postasını yeniden gönder",
+    "resend_need_email": "Önce e-posta adresini yaz.",
+    "resend_sent": "Doğrulama e-postası tekrar gönderildi.",
+    "snack_login_success": "Giriş başarılı",
+    "snack_signup_sent": "E-posta onayı gönderildi. Lütfen mailden onaylayın.",
+    "switch_to_signup": "Hesabın yok mu? Kayıt ol",
+    "switch_to_login": "Zaten hesabın var mı? Giriş yap",
+    "error_generic": "Bir şeyler ters gitti"
   }
 };
 static const Map<String,dynamic> _en = {
@@ -102,7 +130,11 @@ static const Map<String,dynamic> _en = {
     "yes": "Yes",
     "no": "No",
     "delete": "Delete",
-    "error": "Error: {0}"
+    "error": "Error: {0}",
+    "success": "Successful",
+    "failed": "Unsuccessful",
+    "attention": "Warring",
+    "info": "Information"
   },
   "group": {
     "title": "Groups",
@@ -128,7 +160,7 @@ static const Map<String,dynamic> _en = {
     "invite_share": "Share (WhatsApp / Instagram / …)",
     "create_invite": "Create Invite",
     "added": "Group added",
-    "name_title": "Group name",
+    "name_title": "Add Group",
     "name_hint2": "e.g., Flatmates"
   },
   "groupDetail": {
@@ -169,6 +201,30 @@ static const Map<String,dynamic> _en = {
   "snack": {
     "made_admin": "Made admin",
     "removed_admin": "Admin removed"
+  },
+  "appDrawer": {
+    "exit_login": "Signed out",
+    "exit": "Sign out",
+    "name_update": "Name updated",
+    "name_edit": "Edit name"
+  },
+  "auth": {
+    "title_login": "Welcome back!",
+    "title_signup": "Create Account :)",
+    "subtitle_login": "You can sign in with email and password",
+    "subtitle_signup": "You can sign up with email and password",
+    "field_email": "Email",
+    "field_password": "Password",
+    "btn_login": "Sign In",
+    "btn_signup": "Sign Up",
+    "resend_title": "Resend verification email",
+    "resend_need_email": "Type your email first.",
+    "resend_sent": "Verification email sent again.",
+    "snack_login_success": "Signed in successfully",
+    "snack_signup_sent": "Verification email sent. Please confirm from your inbox.",
+    "switch_to_signup": "No account? Sign up",
+    "switch_to_login": "Already have an account? Sign in",
+    "error_generic": "Something went wrong"
   }
 };
 static const Map<String, Map<String,dynamic>> mapLocales = {"tr": _tr, "en": _en};

@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -67,8 +68,8 @@ class MemberTile extends ConsumerWidget {
           if (context.mounted) {
             showAppSnack(
               ref,
-              title: 'Başarılı',
-              message: role == 'admin' ? 'Admin yapıldı' : 'Adminlik kaldırıldı',
+              title: 'common.success'.tr(),
+              message: key == 'make_admin' ? 'snack.made_admin'.tr() : 'snack.removed_admin'.tr(),
               type: AppNotice.success,
             );
           }

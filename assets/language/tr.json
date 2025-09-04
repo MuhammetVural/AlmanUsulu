@@ -8,7 +8,12 @@
     "yes": "Evet",
     "no": "Hayır",
     "delete": "Sil",
-    "error": "Hata: {0}"
+    "error": "Hata: {0}",
+    "success": "Başarılı",
+    "failed": "Başarısız",
+    "attention": "Uyarı",
+    "info": "Bilgilendirme"
+
   },
   "group": {
     "title": "Gruplar",
@@ -33,8 +38,8 @@
     "invite_share": "Paylaş (WhatsApp / Instagram / …)",
     "create_invite": "Davetiye Oluştur",
     "added": "Grup eklendi",
-    "name_title": "Grup adı",
-    "name_hint2": "ör. Ev Arkadaşları"
+    "name_title": "Grup Ekle",
+    "name_hint2": "ör. Mangal Etkinliği"
   },
   "groupDetail": {
     "balance_summary": "Bakiye Özeti",
@@ -74,5 +79,29 @@
   "snack": {
     "made_admin": "Admin yapıldı",
     "removed_admin": "Adminlik kaldırıldı"
+  },
+  "appDrawer": {
+    "exit_login": "Çıkış yapıldı",
+    "exit": "Çıkış yap",
+    "name_update": "İsim güncellendi",
+    "name_edit": "İsmi düzenle"
+  },
+  "auth": {
+    "title_login": "Tekrar Hoş Geldiniz!",
+    "title_signup": "Hesap Oluştur :)",
+    "subtitle_login": "E-posta ve şifre ile giriş yapabilirsiniz",
+    "subtitle_signup": "E-posta ve şifre ile kaydolabilirsiniz",
+    "field_email": "E-posta",
+    "field_password": "Şifre",
+    "btn_login": "Giriş Yap",
+    "btn_signup": "Kayıt Ol",
+    "resend_title": "Doğrulama e-postasını yeniden gönder",
+    "resend_need_email": "Önce e-posta adresini yaz.",
+    "resend_sent": "Doğrulama e-postası tekrar gönderildi.",
+    "snack_login_success": "Giriş başarılı",
+    "snack_signup_sent": "E-posta onayı gönderildi. Lütfen mailden onaylayın.",
+    "switch_to_signup": "Hesabın yok mu? Kayıt ol",
+    "switch_to_login": "Zaten hesabın var mı? Giriş yap",
+    "error_generic": "Bir şeyler ters gitti"
   }
 }

@@ -8,7 +8,11 @@
     "yes": "Yes",
     "no": "No",
     "delete": "Delete",
-    "error": "Error: {0}"
+    "error": "Error: {0}",
+    "success": "Successful",
+    "failed": "Unsuccessful",
+    "attention": "Warring",
+    "info": "Information"
   },
   "group": {
     "title": "Groups",
@@ -34,7 +38,7 @@
     "invite_share": "Share (WhatsApp / Instagram / …)",
     "create_invite": "Create Invite",
     "added": "Group added",
-    "name_title": "Group name",
+    "name_title": "Add Group",
     "name_hint2": "e.g., Flatmates"
   },
   "groupDetail": {
@@ -75,5 +79,29 @@
   "snack": {
     "made_admin": "Made admin",
     "removed_admin": "Admin removed"
+  },
+  "appDrawer": {
+    "exit_login": "Signed out",
+    "exit": "Sign out",
+    "name_update": "Name updated",
+    "name_edit": "Edit name"
+  },
+  "auth": {
+    "title_login": "Welcome back!",
+    "title_signup": "Create Account :)",
+    "subtitle_login": "You can sign in with email and password",
+    "subtitle_signup": "You can sign up with email and password",
+    "field_email": "Email",
+    "field_password": "Password",
+    "btn_login": "Sign In",
+    "btn_signup": "Sign Up",
+    "resend_title": "Resend verification email",
+    "resend_need_email": "Type your email first.",
+    "resend_sent": "Verification email sent again.",
+    "snack_login_success": "Signed in successfully",
+    "snack_signup_sent": "Verification email sent. Please confirm from your inbox.",
+    "switch_to_signup": "No account? Sign up",
+    "switch_to_login": "Already have an account? Sign in",
+    "error_generic": "Something went wrong"
   }
 }
