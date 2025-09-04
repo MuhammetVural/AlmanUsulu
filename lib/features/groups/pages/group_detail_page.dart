@@ -6,6 +6,7 @@ import 'package:local_alman_usulu/widgets/loading_list.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../app/providers.dart';
+import '../../../core/ui/notifications.dart';
 import '../../../data/repo/auth_repo.dart';
 import '../../../services/group_invite_link_service.dart';
 import '../home_page.dart';
@@ -241,7 +242,7 @@ class _Fab extends ConsumerWidget {
     return PopupMenuButton<String>(
       onSelected: (key) async {
         // ⬇️ GİRİŞ YOKSA AUTH SAYFASINA GÖTÜR
-        final ok = await ensureSignedIn(context);
+        final ok = await ensureSignedIn(context, ref);
         if (!ok) return;
         if (key == 'member') {
           final name = await _askText(context, 'dialogs.add_member_name'.tr());
@@ -261,8 +262,11 @@ class _Fab extends ConsumerWidget {
               .hasActiveExpenses(groupId);
           if (!hasExpenses) {
             if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('dialogs.added_member'.tr())),
+              showAppSnack(
+                ref,
+                title: 'common.success'.tr(),
+                message: 'dialogs.added_member'.tr(),
+                type: AppNotice.success,
               );
             }
             return;
@@ -297,14 +301,20 @@ class _Fab extends ConsumerWidget {
             ref.invalidate(visibleExpensesProvider(groupId));
             ref.invalidate(balancesProvider(groupId));
             if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('dialogs.included_past'.tr())),
+              showAppSnack(
+                ref,
+                title: 'common.success'.tr(),
+                message: 'dialogs.included_past'.tr(),
+                type: AppNotice.success,
               );
             }
           } else {
             if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('dialogs.added_member'.tr())),
+              showAppSnack(
+                ref,
+                title: 'common.success'.tr(),
+                message: 'dialogs.added_member'.tr(),
+                type: AppNotice.success,
               );
             }
           }
@@ -330,8 +340,11 @@ class _Fab extends ConsumerWidget {
                         onTap: () async {
                           await Clipboard.setData(ClipboardData(text: url));
                           Navigator.pop(ctx);
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('group.invite_copied'.tr())),
+                          showAppSnack(
+                            ref,
+                            title: 'common.info'.tr(),
+                            message: 'group.invite_copied'.tr(),
+                            type: AppNotice.info,
                           );
                         },
                       ),
@@ -380,8 +393,11 @@ class _Fab extends ConsumerWidget {
     final members = await ref.read(memberRepoProvider).listMembers(groupId);
     if (members.isEmpty) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('groupDetail.no_members_yet'.tr())),
+        showAppSnack(
+          ref,
+          title: 'common.failed'.tr(),
+          message: 'groupDetail.no_members_yet'.tr(),
+          type: AppNotice.error,
         );
       }
       return;
@@ -394,9 +410,12 @@ class _Fab extends ConsumerWidget {
     final amount = double.tryParse(amountStr.replaceAll(',', '.'));
     if (amount == null || amount <= 0) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('dialogs.invalid_amount'.tr())));
+        showAppSnack(
+          ref,
+          title: 'common.failed'.tr(),
+          message: 'dialogs.invalid_amount'.tr(),
+          type: AppNotice.error,
+        );
       }
       return;
     }
@@ -408,9 +427,12 @@ class _Fab extends ConsumerWidget {
     final uid = Supabase.instance.client.auth.currentUser?.id;
     if (uid == null) {
       if (context.mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('dialogs.no_session'.tr())));
+        showAppSnack(
+          ref,
+          title: 'common.failed'.tr(),
+          message: 'dialogs.invalid_amount'.tr(),
+          type: AppNotice.error,
+        );
       }
       return;
     }

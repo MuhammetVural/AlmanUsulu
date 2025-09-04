@@ -1,20 +1,21 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:app_links/app_links.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../data/repo/auth_repo.dart';        // handleAuthDeepLink için
-import '../features/auth/auth_page.dart';    // giriş/kayıt sayfan
-// import '../features/groups/group_list_page.dart'; // senin grup listesi sayfan
+import '../data/repo/auth_repo.dart';
+import '../features/auth/auth_page.dart';
 
-class AuthGate extends StatefulWidget {
+
+class AuthGate extends ConsumerStatefulWidget {
   final Widget child; // oturum varken göstereceğimiz asıl ekran (ör. GroupListPage)
   const AuthGate({super.key, required this.child});
 
   @override
-  State<AuthGate> createState() => _AuthGateState();
+  ConsumerState<AuthGate> createState() => _AuthGateState(); // 👈 ConsumerState
 }
 
-class _AuthGateState extends State<AuthGate> {
+class _AuthGateState extends ConsumerState<AuthGate> {
   late final SupabaseClient _client;
   late final AppLinks _links;
   AuthRepo get _authRepo => AuthRepo();
@@ -39,13 +40,13 @@ class _AuthGateState extends State<AuthGate> {
     final initial = await _links.getInitialLink();
     if (initial != null) {
       await _authRepo.handleAuthDeepLink(initial);
-      await ensureDisplayName(context);
+      await ensureDisplayName(context, ref);
       if (mounted) setState(() {});
     }
     // app açıkken
     _links.uriLinkStream.listen((uri) async {
       await _authRepo.handleAuthDeepLink(uri);
-      await ensureDisplayName(context);
+      await ensureDisplayName(context, ref); 
       if (mounted) setState(() {});
     });
   }

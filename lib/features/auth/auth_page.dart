@@ -1,17 +1,20 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart'; // 👈 eklendi
 import 'package:local_alman_usulu/widgets/ui_components.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../core/ui/notifications.dart';
 import '../../data/repo/auth_repo.dart';
 
-class AuthPage extends StatefulWidget {
+class AuthPage extends ConsumerStatefulWidget { // 👈 ConsumerStatefulWidget
   final VoidCallback? onSignedIn; // başarıdan sonra çağır
   const AuthPage({super.key, this.onSignedIn});
 
   @override
-  State<AuthPage> createState() => _AuthPageState();
+  ConsumerState<AuthPage> createState() => _AuthPageState(); // 👈 ConsumerState
 }
 
-class _AuthPageState extends State<AuthPage> {
+class _AuthPageState extends ConsumerState<AuthPage> {
   final _email = TextEditingController();
   final _pass = TextEditingController();
   bool _isLogin = true;
@@ -36,7 +39,7 @@ class _AuthPageState extends State<AuthPage> {
           password: _pass.text,
         );
         // Ensure display name before group creation
-        await ensureDisplayName(context);
+        await ensureDisplayName(context, ref);
       } else {
         final res = await client.auth.signUp(
           email: _email.text.trim(),
@@ -46,7 +49,7 @@ class _AuthPageState extends State<AuthPage> {
         // Email confirm off ise res.user != null ve session oluşur
         // on ise kullanıcı mail onayı sonrası oturum açar
         if (Supabase.instance.client.auth.currentSession != null) {
-          await ensureDisplayName(context); // ← EKLE
+          await ensureDisplayName(context, ref);
         }
       }
       if (!mounted) return;
@@ -54,35 +57,36 @@ class _AuthPageState extends State<AuthPage> {
       if (Navigator.canPop(context)) {
         Navigator.of(context).pop(true);
       } else {
-        // AuthGate state değişimini yakalayacak; burada ekranda kal.
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              _isLogin
-                  ? 'Giriş başarılı'
-                  : 'E-posta onayı gönderildi. Lütfen mailden onaylayın.',
-            ),
-          ),
+        // 👇 sizin imzaya göre
+        showAppSnack(
+          ref,
+          title: 'common.success'.tr(),
+          message: _isLogin
+              ? 'auth.snack_login_success'.tr()
+              : 'auth.snack_signup_sent'.tr(),
+          type: AppNotice.success,
         );
       } // önceki ekrana dön
     } on AuthException catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(e.message)));
+      showAppSnack(
+        ref,
+        title: 'common.failed'.tr(),
+        message: e.message,
+        type: AppNotice.error,
+      );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Bir şeyler ters gitti: $e')));
+      showAppSnack(
+        ref,
+        title: 'common.failed'.tr(),
+        message: 'common.error'.tr(args: [e.toString()]),
+        type: AppNotice.error,
+      );
     } finally {
       if (mounted) setState(() => _loading = false);
     }
   }
-
-  // This is a preview-only copy of the updated build() for your AuthPage,
-  // plus two tiny helper widgets used purely for the visuals.
-  // Your auth logic is untouched; only UI structure & styling changed.
 
   @override
   Widget build(BuildContext context) {
@@ -116,30 +120,34 @@ class _AuthPageState extends State<AuthPage> {
 
                   // Headline + subtitle
                   Text(
-                    isLogin ? 'Tekrar Hoşgeldiniz!' : 'Hesap Oluştur :)',
+                    isLogin ? 'auth.title_login'.tr() : 'auth.title_signup'.tr(),
                     style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                       fontWeight: FontWeight.w800,
                       height: 1.1,
                     ),
                   ),
-
-                    const SizedBox(height: 6),
-                    Text( isLogin ?
-                      'Mail ve şifre ile giriş yapabilirsiniz' : 'Mail ve şifre ile kaydolabilirsiniz' ,
-                      style: Theme.of(
-                        context,
-                      ).textTheme.bodyMedium?.copyWith(color: Colors.black54),
-                    ),
+                  const SizedBox(height: 6),
+                  Text(
+                    isLogin
+                        ? 'auth.subtitle_login'.tr()
+                        : 'auth.subtitle_signup'.tr(),
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.copyWith(color: Colors.black54),
+                  ),
                   const SizedBox(height: 28),
 
-                  // Fields (labels kept same -> no logic change)
-                  AUTextField(controller: _email, hint: 'E-posta'),
+                  // Fields
+                  AUTextField(controller: _email, hint: 'auth.field_email'.tr()),
                   const SizedBox(height: 18),
-                  AUTextField(controller: _pass, hint: 'Şifre'),
+                  AUTextField(controller: _pass, hint: 'auth.field_password'.tr()),
 
                   const SizedBox(height: 24),
                   _PrimaryButton(
-                    label: isLogin ? 'LOGIN' : 'Sign Up',
+                    label: isLogin
+                        ? 'auth.btn_login'.tr()
+                        : 'auth.btn_signup'.tr(),
                     onPressed: _loading ? null : _submit,
                   ),
 
@@ -151,46 +159,48 @@ class _AuthPageState extends State<AuthPage> {
                         onPressed: _loading
                             ? null
                             : () async {
-                                final email = _email.text.trim();
-                                if (email.isEmpty) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Önce e-posta adresini yaz.',
-                                      ),
-                                    ),
-                                  );
-                                  return;
-                                }
-                                try {
-                                  await AuthRepo().resendSignupEmail(
-                                    email,
-                                    emailRedirectTo:
-                                        'https://almanusulu-3838.web.app/auth/callback',
-                                  );
-                                  if (!mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text(
-                                        'Doğrulama e-postası tekrar gönderildi.',
-                                      ),
-                                    ),
-                                  );
-                                } on AuthException catch (e) {
-                                  if (!mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text(e.message)),
-                                  );
-                                } catch (e) {
-                                  if (!mounted) return;
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Hata: $e')),
-                                  );
-                                }
-                              },
-                        child: const Text(
-                          'Doğrulama e-postasını yeniden gönder',
-                        ),
+                          final email = _email.text.trim();
+                          if (email.isEmpty) {
+                            showAppSnack(
+                              ref,
+                              title: 'common.failed'.tr(),
+                              message: 'auth.resend_need_email'.tr(),
+                              type: AppNotice.error,
+                            );
+                            return;
+                          }
+                          try {
+                            await AuthRepo().resendSignupEmail(
+                              email,
+                              emailRedirectTo:
+                              'https://almanusulu-3838.web.app/auth/callback',
+                            );
+                            if (!mounted) return;
+                            showAppSnack(
+                              ref,
+                              title: 'common.success'.tr(),
+                              message: 'auth.resend_sent'.tr(),
+                              type: AppNotice.success,
+                            );
+                          } on AuthException catch (e) {
+                            if (!mounted) return;
+                            showAppSnack(
+                              ref,
+                              title: 'common.failed'.tr(),
+                              message: e.message,
+                              type: AppNotice.error,
+                            );
+                          } catch (e) {
+                            if (!mounted) return;
+                            showAppSnack(
+                              ref,
+                              title: 'common.failed'.tr(),
+                              message: 'common.error'.tr(args: [e.toString()]),
+                              type: AppNotice.error,
+                            );
+                          }
+                        },
+                        child: Text('auth.resend_title'.tr()),
                       ),
                     ),
                   ],
@@ -202,8 +212,8 @@ class _AuthPageState extends State<AuthPage> {
                       onPressed: () => setState(() => _isLogin = !_isLogin),
                       child: Text(
                         isLogin
-                            ? 'Hesabın yok mu? Kayıt ol'
-                            : 'Zaten hesabın var mı? Giriş yap',
+                            ? 'auth.switch_to_signup'.tr()
+                            : 'auth.switch_to_login'.tr(),
                       ),
                     ),
                   ),
@@ -239,7 +249,7 @@ class _BlobsBackground extends StatelessWidget {
           Positioned(
             left: -60,
             top: 180,
-            child: _Blob(color: bottomLeftColor.withValues(alpha:  .85), size: 260),
+            child: _Blob(color: bottomLeftColor.withValues(alpha: .85), size: 260),
           ),
           Positioned(
             right: -120,

@@ -1,5 +1,9 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
+import '../../core/ui/notifications.dart';
 
 class AuthRepo {
   final SupabaseClient _client = Supabase.instance.client;
@@ -77,7 +81,7 @@ class AuthRepo {
   /// App geneli deep link karşılayıcı:
   /// - Auth linklerini mevcut handleAuthDeepLink ile işler.
   /// - Davet linklerinde kullanıcıdan onay ister ve onaylarsa gruba ekler.
-  Future<void> handleAppDeepLink(BuildContext context, Uri uri) async {
+  Future<void> handleAppDeepLink(BuildContext context, Uri uri, WidgetRef ref) async {
     // 1) Önce auth linklerini karşılayalım (oturum oluşturma vs.)
     try {
       await handleAuthDeepLink(uri);
@@ -97,8 +101,11 @@ class AuthRepo {
     final user = client.auth.currentUser;
     if (user == null) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Devam etmek için önce giriş yapın.')),
+        showAppSnack(
+          ref,
+          title: 'common.failed'.tr(),
+          message: 'Devam etmek için önce giriş yapın.',
+          type: AppNotice.error,
         );
       }
       return;
@@ -165,21 +172,29 @@ class AuthRepo {
           .maybeSingle();
 
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('“$groupName” grubuna katıldınız.')),
+        showAppSnack(
+          ref,
+          title: 'common.success'.tr(),
+          message: '“$groupName” grubuna katıldınız.',
+          type: AppNotice.success,
         );
       }
     } on PostgrestException catch (e) {
       // 23505 unique violation vs. durumlarında kullanıcıya yalın mesaj ver
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gruba katılım sırasında hata: ${e.message}')),
-        );
+        showAppSnack(
+            ref,
+            title: 'common.failed'.tr(),
+            message: 'Gruba katılım sırasında hata: ${e.message}',
+            type: AppNotice.error,);
       }
     } catch (e) {
       if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gruba katılamadınız: $e')),
+        showAppSnack(
+          ref,
+          title: 'common.failed'.tr(),
+          message: 'Gruba katılamadınız: $e',
+          type: AppNotice.error,
         );
       }
     }
@@ -188,7 +203,7 @@ class AuthRepo {
 
 /// ---- Helper: Giriş yoksa mini dialog aç ----
 /// Repo saf kalsın ama pratiklik için burada tutuyoruz.
-Future<bool> ensureSignedIn(BuildContext context, {AuthRepo? repo}) async {
+Future<bool> ensureSignedIn(BuildContext context, WidgetRef ref, {AuthRepo? repo}) async {
   final r = repo ?? AuthRepo();
   if (r.isSignedIn) return true;
 
@@ -227,19 +242,32 @@ Future<bool> ensureSignedIn(BuildContext context, {AuthRepo? repo}) async {
                 } else {
                   await r.signUp(emailCtrl.text.trim(), passCtrl.text);
                   if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('E-posta onayı gönderildi. Maildeki linke tıklayın.')),
+                    showAppSnack(
+                      ref,
+                      title: 'common.info'.tr(),
+                      message: 'E-posta onayı gönderildi. Maildeki linke tıklayın.',
+                      type: AppNotice.info,
                     );
                   }
                 }
                 Navigator.pop(ctx, r.isSignedIn);
               } on AuthException catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+                  showAppSnack(
+                    ref,
+                    title: 'common.failed'.tr(),
+                    message: e.message,
+                    type: AppNotice.error,
+                  );
                 }
               } catch (e) {
                 if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: $e')));
+                  showAppSnack(
+                    ref,
+                    title: 'common.failed'.tr(),
+                    message: 'Hata: $e',
+                    type: AppNotice.error,
+                  );
                 }
               }
             },
@@ -253,7 +281,7 @@ Future<bool> ensureSignedIn(BuildContext context, {AuthRepo? repo}) async {
   return ok == true || r.isSignedIn;
 }
 
-Future<void> ensureDisplayName(BuildContext context) async {
+Future<void> ensureDisplayName(BuildContext context, WidgetRef ref) async {
   final u = Supabase.instance.client.auth.currentUser;
   if (u == null) return;
 
@@ -291,17 +319,30 @@ Future<void> ensureDisplayName(BuildContext context) async {
       UserAttributes(data: {'name': name}),
     );
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('İsmin kaydedildi.')),
+      showAppSnack(
+        ref,
+        title: 'common.success'.tr(),
+        message: 'İsmin kaydedildi.',
+        type: AppNotice.success,
       );
     }
   } on AuthException catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.message)));
+      showAppSnack(
+        ref,
+        title: 'common.failed'.tr(),
+        message: e.message,
+        type: AppNotice.error,
+      );
     }
   } catch (e) {
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Hata: $e')));
+      showAppSnack(
+        ref,
+        title: 'common.failed'.tr(),
+        message: 'Hata: $e',
+        type: AppNotice.error,
+      );
     }
   }
 }

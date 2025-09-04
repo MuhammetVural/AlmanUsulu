@@ -1,9 +1,11 @@
 
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../app/providers.dart';
+import '../../core/ui/notifications.dart';
 
 /// FutureProvider to fetch the current user's member row from Supabase.
 final currentMemberProvider = FutureProvider<Map<String, dynamic>?>((ref) async {
@@ -49,18 +51,18 @@ class AppDrawer extends ConsumerWidget {
         ),
         ListTile(
           leading: const Icon(Icons.edit, size: 18),
-          title: const Text('İsmi Düzenle'),
+          title:  Text('appDrawer.name_edit'.tr()),
           onTap: () async {
             if (u == null) return;
             final ctrl = TextEditingController(text: name);
             final newName = await showDialog<String>(
               context: context,
               builder: (ctx) => AlertDialog(
-                title: const Text('İsmini düzenle'),
+                title:  Text('appDrawer.name_edit'.tr()),
                 content: TextField(controller: ctrl, autofocus: true),
                 actions: [
-                  TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Vazgeç')),
-                  FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: const Text('Kaydet')),
+                  TextButton(onPressed: () => Navigator.pop(ctx), child:  Text('common.cancel'.tr())),
+                  FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child:  Text('common.save'.tr()),)
                 ],
               ),
             );
@@ -81,8 +83,11 @@ class AppDrawer extends ConsumerWidget {
 
             ref.invalidate(currentMemberProvider);// authStateProvider zaten watch ediliyor; userUpdated ile rebuild olur
             if (context.mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('İsim güncellendi')),
+              showAppSnack(
+                ref,
+                title: 'common.success'.tr(),
+                message: 'appDrawer.name_update'.tr(),
+                type: AppNotice.success,
               );
             }
           },
@@ -90,13 +95,16 @@ class AppDrawer extends ConsumerWidget {
         const Divider(height: 1),
         ListTile(
           leading: const Icon(Icons.logout),
-          title: const Text('Çıkış yap'),
+          title:  Text('appDrawer.exit'.tr()),
           onTap: () async {
             await sb.auth.signOut();
             if (context.mounted) {
               Navigator.of(context).pop();
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Çıkış yapıldı')),
+              showAppSnack(
+                ref,
+                title: 'common.info'.tr(),
+                message: 'appDrawer.exit_login'.tr(),
+                type: AppNotice.info,
               );
             }
           },
