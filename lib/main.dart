@@ -5,6 +5,7 @@ import 'package:intl/date_symbol_data_file.dart';
 import 'package:intl/intl.dart';
 import 'package:local_alman_usulu/env/env.dart';
 import 'package:local_alman_usulu/firebase_options.dart';
+import 'package:local_alman_usulu/l10n/localization_manager.dart';
 import 'package:local_alman_usulu/services/email_invite_link_service.dart';
 import 'package:local_alman_usulu/services/group_invite_link_service.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -28,5 +29,5 @@ Future<void> main() async {
   );
 
 
-  runApp(const ProviderScope(child: MyApp(home: SplashGate())));
+  runApp(LocalizationManager(child: const ProviderScope(child: MyApp(home: SplashGate()))));
 }

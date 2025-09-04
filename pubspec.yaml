@@ -30,8 +30,7 @@ dependencies:
   share_plus: ^10.0.0
   flutter_native_splash: ^2.4.6
   shimmer: ^3.0.0
-  flutter_localizations:
-    sdk: flutter
+  easy_localization: ^3.0.8
 
 
 dev_dependencies:
@@ -50,6 +49,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
+    - assets/language/
     - assets/brand/logo.png
     - assets/onboarding/avatar1.png
     - assets/onboarding/avatar2.png

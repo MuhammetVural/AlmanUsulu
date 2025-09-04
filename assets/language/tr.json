@@ -1,0 +1,78 @@
+{
+  "common": {
+    "filter": "Filtrele",
+    "ok": "Tamam",
+    "cancel": "Vazgeç",
+    "save": "Kaydet",
+    "add": "Ekle",
+    "yes": "Evet",
+    "no": "Hayır",
+    "delete": "Sil",
+    "error": "Hata: {0}"
+  },
+  "group": {
+    "title": "Gruplar",
+    "empty": "Henüz grup yok. + ile ekleyin.",
+    "created_at": "Oluşturulma Tarihi:",
+    "edit_name": "Adı düzenle",
+    "name_dialog_title": "Grup adını düzenle",
+    "name_hint": "Yeni grup adı",
+    "name_update": "Grup adı güncellendi",
+    "leave": "Gruptan ayrıl",
+    "cannot_leave_admin": "⚠️ Admin/Owner gruptan ayrılamaz. (Geliştiriliyor)",
+    "leave_message": "“{0}” grubu listenizden kaldırılacak.",
+    "leave_confirm": "Ayrıl",
+    "you_left": "Gruptan ayrıldınız",
+    "delete_tooltip": "Grubu sil (tüm üyeler için)",
+    "delete_title": "Grup silinsin mi?",
+    "delete_message": "“{0}” tüm üyeler için kaldırılacak.",
+    "deleted": "Grup silindi",
+    "invite_link": "Davet linki",
+    "invite_copy": "Bağlantıyı kopyala",
+    "invite_copied": "Davet linki kopyalandı",
+    "invite_share": "Paylaş (WhatsApp / Instagram / …)",
+    "create_invite": "Davetiye Oluştur",
+    "added": "Grup eklendi",
+    "name_title": "Grup adı",
+    "name_hint2": "ör. Ev Arkadaşları"
+  },
+  "groupDetail": {
+    "balance_summary": "Bakiye Özeti",
+    "expenses": "Harcamalar",
+    "members": "Üyeler",
+    "filter": "Filtrele",
+    "filter_active_edit": "Filtre aktif — değiştir",
+    "no_members": "Üye yok",
+    "no_expenses": "Henüz harcama yok",
+    "no_group_members": "Gruba üye eklenmemiş",
+    "error_members": "Üye hatası: {0}",
+    "error_expenses": "Harcama hatası: {0}",
+    "error_balances": "Bakiye hatası: {0}",
+    "add_member": "Üye ekle",
+    "add_expense": "Harcama ekle",
+    "invite": "Davet linki"
+  },
+  "dialogs": {
+    "no_see_member": "Bu grupta üye olarak görünmüyorsunuz",
+    "add_member_name": "Üye adı",
+    "include_in_budget_title": "Bütçeye dahil edilsin mi?",
+    "include_in_budget_message": "Bu kişiyi geçmiş harcamalara katılımcı olarak ekleyelim mi?",
+    "added_member": "Üye eklendi",
+    "included_past": "Üye geçmiş harcamalara dahil edildi",
+    "add_expense_title": "Harcama Ekle",
+    "amount_prompt": "Tutar (ör. 120.50)",
+    "invalid_amount": "Geçersiz tutar.",
+    "no_members_yet": "Önce en az bir üye ekleyin.",
+    "no_session": "Oturum bulunamadı.",
+    "payer": "Ödeyen"
+  },
+  "theme": {
+    "dark": "Karanlık tema",
+    "light": "Aydınlık tema",
+    "toggle_suffix": "(değiştir)"
+  },
+  "snack": {
+    "made_admin": "Admin yapıldı",
+    "removed_admin": "Adminlik kaldırıldı"
+  }
+}
