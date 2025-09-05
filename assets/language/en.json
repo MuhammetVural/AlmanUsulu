@@ -15,6 +15,12 @@
     "info": "Information"
   },
   "group": {
+    "role": {
+      "owner": "Owner",
+      "admin": "Admin",
+      "member": "Member"
+    },
+    "member_count": "{} Members",
     "title": "Groups",
     "empty": "No groups yet. Add with +.",
     "created_at": "Created At:",
