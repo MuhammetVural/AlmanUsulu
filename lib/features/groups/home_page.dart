@@ -7,6 +7,7 @@ import 'package:local_alman_usulu/features/widgets/app_drawer.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../app/providers.dart';
+import '../../app/theme/theme_utils.dart';
 import '../../data/repo/auth_repo.dart';
 import '../../services/group_invite_link_service.dart';
 import 'pages/group_detail_page.dart';
@@ -17,6 +18,7 @@ class HomePage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+
     final groupsAsync = ref.watch(groupsProvider);
     // Davet linki dinleyicisini ayağa kaldır (idempotent)
     ref.watch(inviteLinksInitProvider);
@@ -52,8 +54,12 @@ class HomePage extends ConsumerWidget {
         child: groupsAsync.when(
           data: (rows) {
             if (rows.isEmpty) {
-              return  Center(child: Text('group.empty'.tr()));
+              return Center(child: Text('group.empty'.tr()));
             }
+            // Pastel renkleri listeye dağıt (kullanılmayanı öncele, ardışık tekrar yok)
+            final assignedColors = _assignSoftColors(
+              rows.map<String>((r) => (r['name'] as String?) ?? '').toList(),
+            );
             return ListView.separated(
               itemCount: rows.length,
               separatorBuilder: (_, __) => const SizedBox(),
@@ -65,6 +71,8 @@ class HomePage extends ConsumerWidget {
                 final createdAt = DateTime.fromMillisecondsSinceEpoch(createdAtSec * 1000).toLocal();
                 final formattedDate = DateFormat('dd-MM-yyyy | HH:mm').format(createdAt);
                 final myRoleAsync = ref.watch(myRoleForGroupProvider(g['id'] as int));
+                // Bu grubun üyeleri (avatarlar ve sayı için)
+                final membersAsync = ref.watch(membersProvider(g['id'] as int));
                 // final role = myRoleAsync.asData?.value;
                 final Color dotColor = myRoleAsync.when(
                   data: (role) => (role == 'owner') ? Colors.green : Colors.amber,
@@ -82,296 +90,324 @@ class HomePage extends ConsumerWidget {
                       ),
                     );
                   },
-                  child: Card(
-                    margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    color: Theme.of(context).cardTheme.color,
-                    elevation: Theme.of(context).cardTheme.elevation ?? 0,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(18),
-                      side: BorderSide(
-                        color: Theme.of(context).colorScheme.outlineVariant.withValues(alpha: 0.5),
-                        width: 0.6,
-                      ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(14),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
+                  // YENİ (Container + tek renk + desen)
+                  child: Builder(
+                    builder: (context) {
+                      // grup adına göre stabil “random” pastel
+                      // 1) Paletten gelen baz renk
+                      final Color _softBase = assignedColors[i];
+                      final Color _soft = adaptSoftForTheme(_softBase, context);
 
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // başlık + küçük etiket
-                                Row(
-                                  children: [
-                                    Expanded(
-                                      child: Text(
-                                        g['name'] as String,
-                                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                          fontWeight: FontWeight.w700,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    // rol etiketini küçük pil gibi göster
-                                    myRoleAsync.when(
-                                      data: (role) {
-                                        final label = (role == 'owner')
-                                            ? 'OWNER'
-                                            : (role == 'admin')
-                                            ? 'ADMIN'
-                                            : 'MEMBER';
-                                        final color = (role == 'owner' || role == 'admin')
-                                            ? Colors.green
-                                            : Colors.amber;
-                                        return _Pill(label: label, color: color); // ✅ burada Pill dönüyoruz
-                                      },
-                                      loading: () => const SizedBox.shrink(),
-                                      error: (_, __) => const SizedBox.shrink(),
-                                    ),
+                      return ClipRRect(
+                        borderRadius: BorderRadius.circular(24), // desen taşmasın
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(horizontal: 28, vertical: 12),
+                          padding: const EdgeInsets.all(18),
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(24),
 
-                                  ],
-                                ),
-                                const SizedBox(height: 6),
-
-                                // tarih satırı (sağ uçta)
-
-                                Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start, // 🔹 sola hizalı
-                                  children: [
-                                    Text(
-                                      'group.created_at'.tr(),
-                                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                    Text(
-                                      DateFormat('dd.MM.yyyy').format(createdAt),
-                                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-
-                                const SizedBox(height: 8),
-                                // aksiyonlar (mevcut işlevler aynen)
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.end,
-                                  children: [
-                                    IconButton(
-                                      icon: const Icon(Icons.edit_outlined, size: 20),
-                                      tooltip: 'group.edit_name'.tr(),
-                                      onPressed: () async {
-                                        final id = g['id'] as int;
-                                        final currentName = (g['name'] as String?) ?? '';
-                                        final ctrl = TextEditingController(text: currentName);
-                                        ctrl.selection = TextSelection(baseOffset: 0, extentOffset: ctrl.text.length);
-
-                                        final newName = await showDialog<String>(
-                                          context: context,
-                                          builder: (ctx) => AlertDialog(
-                                            title:  Text('group.name_dialog_title'.tr(),),
-                                            content: TextField(
-                                              controller: ctrl,
-                                              autofocus: true,
-                                              decoration:  InputDecoration(hintText: 'group.name_hint'.tr()),
-                                              onTap: () => ctrl.selection = TextSelection(baseOffset: 0, extentOffset: ctrl.text.length),
-                                              onSubmitted: (_) => Navigator.pop(ctx, ctrl.text.trim()),
-                                              textInputAction: TextInputAction.done,
-                                            ),
-                                            actions: [
-                                              TextButton(onPressed: () => Navigator.pop(ctx), child:  Text('common.cancel'.tr())),
-                                              FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child:  Text('common.save'.tr())),
-                                            ],
-                                          ),
-                                        );
-
-                                        if (newName == null || newName.isEmpty || newName == currentName) return;
-                                        await ref.read(groupRepoProvider).updateGroupName(id, newName);
-                                        ref.invalidate(groupsProvider);
-                                        if (context.mounted) {
-                                          showAppSnack(
-                                            ref,
-                                            title: 'common.success'.tr(),
-                                            message: 'group.name_update'.tr(),
-                                            type: AppNotice.success,
-                                          );
-                                        }
-                                      },
-                                    ),
-
-                                    // gruptan ayrıl
-                                    IconButton(
-                                      icon: const Icon(Icons.logout, size: 20),
-                                      tooltip: 'group.leave'.tr(),
-                                      onPressed: () async {
-                                        final id = g['id'] as int;
-                                        final uid = Supabase.instance.client.auth.currentUser?.id;
-                                        if (uid == null) return;
-
-                                        final rows = await Supabase.instance.client
-                                            .from('members')
-                                            .select('role')
-                                            .eq('group_id', id)
-                                            .eq('user_id', uid)
-                                            .isFilter('deleted_at', null)
-                                            .limit(1);
-
-                                        if (rows.isNotEmpty) {
-                                          final role = rows.first['role'] as String?;
-                                          if (role == 'owner' || role == 'admin') {
-                                            if (context.mounted) {
-                                              showAppSnack(
-                                                ref,
-                                                title: 'common.failed'.tr(),
-                                                message: 'group.cannot_leave_admin'.tr(),
-                                                type: AppNotice.error,
-                                              );
-                                            }
-                                            return;
-                                          }
-                                        }
-
-                                        final confirmed = await showDialog<bool>(
-                                          context: context,
-                                          builder: (ctx) => AlertDialog(
-                                            title:  Text('Gruptan ayrıl?'),
-                                            content: Text('group.leave_message'.tr(args: [g['name'] as String])),
-                                            actions: [
-                                              TextButton(onPressed: () => Navigator.pop(ctx, false), child:  Text('common.cancel'.tr())),
-                                              FilledButton(onPressed: () => Navigator.pop(ctx, true), child:  Text('group.leave_confirm'.tr())),
-                                            ],
-                                          ),
-                                        );
-                                        if (confirmed != true) return;
-
-                                        await ref.read(memberRepoProvider).leaveGroup(id);
-                                        ref.invalidate(groupsProvider);
-                                        if (context.mounted) {
-                                          showAppSnack(
-                                            ref,
-                                            title: 'common.info'.tr(),
-                                            message: 'group.you_left'.tr(),
-                                            type: AppNotice.info,
-                                          );
-                                        }
-                                      },
-                                    ),
-
-                                    // (owner/admin ise) sil
-                                    FutureBuilder<String?>(
-                                      future: (() async {
-                                        final uid = Supabase.instance.client.auth.currentUser?.id;
-                                        if (uid == null) return null;
-                                        final rows = await Supabase.instance.client
-                                            .from('members')
-                                            .select('role')
-                                            .eq('group_id', g['id'] as int)
-                                            .eq('user_id', uid)
-                                            .isFilter('deleted_at', null)
-                                            .limit(1);
-                                        if (rows.isNotEmpty) {
-                                          final r = rows.first['role'];
-                                          return (r is String) ? r : null;
-                                        }
-                                        return null;
-                                      })(),
-                                      builder: (ctx, snap) {
-                                        final role = snap.data;
-                                        final canDelete = role == 'owner' || role == 'admin';
-                                        if (!canDelete) return const SizedBox.shrink();
-
-                                        return IconButton(
-                                          icon: const Icon(Icons.delete_outline, size: 20),
-                                          tooltip: 'group.delete_tooltip'.tr(),
-                                          onPressed: () async {
-                                            final id = g['id'] as int;
-                                            final confirmed = await showDialog<bool>(
-                                              context: context,
-                                              builder: (ctx) => AlertDialog(
-                                                title:  Text('group.delete_title'.tr()),
-                                                content: Text('group.delete_message'.tr(args: [g['name'] as String])),
-                                                actions: [
-                                                  TextButton(onPressed: () => Navigator.pop(ctx, false), child:  Text('common.cancel'.tr())),
-                                                  FilledButton(onPressed: () => Navigator.pop(ctx, true), child:  Text('common.delete'.tr())),
-                                                ],
-                                              ),
-                                            );
-                                            if (confirmed != true) return;
-
-                                            await ref.read(groupRepoProvider).softDeleteGroup(id);
-                                            ref.invalidate(groupsProvider);
-                                            if (context.mounted) {
-                                              showAppSnack(
-                                                ref,
-                                                title: 'common.success'.tr(),
-                                                message: 'group.deleted'.tr(),
-                                                type: AppNotice.success,
-                                              );
-                                            }
-                                          },
-                                        );
-                                      },
-                                    ),
-
-                                    IconButton(
-                                      icon: const Icon(Icons.share, size: 20),
-                                      tooltip: 'group.invite_link'.tr(),
-                                      onPressed: () async {
-                                        final ok = await ensureSignedIn(context, ref);
-                                        if (!ok) return;
-
-                                        final groupId = g['id'] as int;
-                                        final url = await GroupInviteLinkService.createInviteLink(groupId);
-                                        if (!context.mounted) return;
-
-                                        await showModalBottomSheet(
-                                          context: context,
-                                          showDragHandle: true,
-                                          builder: (ctx) => SafeArea(
-                                            child: Column(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: [
-                                                ListTile(
-                                                  leading: const Icon(Icons.link),
-                                                  title:  Text('group.invite_copy'.tr()),
-                                                  onTap: () async {
-                                                    await Clipboard.setData(ClipboardData(text: url));
-                                                    Navigator.pop(ctx);
-                                                    showAppSnack(
-                                                      ref,
-                                                      title: 'common.info'.tr(),
-                                                      message: 'group.invite_copied'.tr(),
-                                                      type: AppNotice.info,
-                                                    );
-                                                  },
-                                                ),
-                                                ListTile(
-                                                  leading: const Icon(Icons.share),
-                                                  title:  Text('group.invite_share'.tr()),
-                                                  onTap: () async {
-                                                    Navigator.pop(ctx);
-                                                    await Share.share(url, subject: 'group.create_invite'.tr());
-                                                  },
-                                                ),
-                                              ],
-                                            ),
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ],
+                            color: _soft, // tek açık arka plan rengi
+                            image: const DecorationImage(
+                              image: AssetImage('assets/patterns/doodle3.png'),
+                              fit: BoxFit.cover,            // zoom yapma
+                              opacity: 0.02,               // yumuşak görünüm
                             ),
                           ),
-                        ],
-                      ),
-                    ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                                  children: [
+                                    // başlık + küçük etiket
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            g['name'] as String,
+                                            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        myRoleAsync.when(
+                                          data: (role) {
+                                            // role from backend: 'owner' | 'admin' | 'member' (or null/other)
+                                            final key = (role == 'owner')
+                                                ? 'owner'
+                                                : (role == 'admin')
+                                                    ? 'admin'
+                                                    : 'member';
+                                            final color = (role == 'owner' || role == 'admin')
+                                                ? Colors.green
+                                                : Colors.amber;
+                                            return _Pill(label: key, color: color); // label is a localization key
+                                          },
+                                          loading: () => const SizedBox.shrink(),
+                                          error: (_, __) => const SizedBox.shrink(),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+                                    // tarih satırı
+                                    Row(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'group.created_at'.tr(),
+                                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                        Text(
+                                          DateFormat('dd.MM.yyyy').format(createdAt),
+                                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                            color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.8),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 12),
+
+                                    // aksiyonlar (mevcut işlevler)
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        // Üyeler: küçük avatarlar + "N members"
+                                        membersAsync.when(
+                                          data: (members) => Row(
+                                            children: [
+                                              _InlineAvatars(members: members),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                'group.member_count'.tr(args: ['${members.length}']),
+                                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.6),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                          loading: () => const SizedBox(height: 18),
+                                          error: (_, __) => const SizedBox.shrink(),
+                                        ),
+                                        Row(
+                                          mainAxisAlignment: MainAxisAlignment.end,
+                                          children: [
+                                            IconButton(
+                                              icon: const Icon(Icons.edit_outlined, size: 20),
+                                              tooltip: 'group.edit_name'.tr(),
+                                              onPressed: () async {
+                                                final id = g['id'] as int;
+                                                final currentName = (g['name'] as String?) ?? '';
+                                                final ctrl = TextEditingController(text: currentName);
+                                                ctrl.selection = TextSelection(baseOffset: 0, extentOffset: ctrl.text.length);
+
+                                                final newName = await showDialog<String>(
+                                                  context: context,
+                                                  builder: (ctx) => AlertDialog(
+                                                    title: Text('group.name_dialog_title'.tr()),
+                                                    content: TextField(
+                                                      controller: ctrl,
+                                                      autofocus: true,
+                                                      decoration: InputDecoration(hintText: 'group.name_hint'.tr()),
+                                                      onTap: () => ctrl.selection = TextSelection(baseOffset: 0, extentOffset: ctrl.text.length),
+                                                      onSubmitted: (_) => Navigator.pop(ctx, ctrl.text.trim()),
+                                                      textInputAction: TextInputAction.done,
+                                                    ),
+                                                    actions: [
+                                                      TextButton(onPressed: () => Navigator.pop(ctx), child: Text('common.cancel'.tr())),
+                                                      FilledButton(onPressed: () => Navigator.pop(ctx, ctrl.text.trim()), child: Text('common.save'.tr())),
+                                                    ],
+                                                  ),
+                                                );
+
+                                                if (newName == null || newName.isEmpty || newName == currentName) return;
+                                                await ref.read(groupRepoProvider).updateGroupName(id, newName);
+                                                ref.invalidate(groupsProvider);
+                                                if (context.mounted) {
+                                                  showAppSnack(
+                                                    ref,
+                                                    title: 'common.success'.tr(),
+                                                    message: 'group.name_update'.tr(),
+                                                    type: AppNotice.success,
+                                                  );
+                                                }
+                                              },
+                                            ),
+                                            // gruptan ayrıl
+                                            IconButton(
+                                              icon: const Icon(Icons.logout, size: 20),
+                                              tooltip: 'group.leave'.tr(),
+                                              onPressed: () async {
+                                                final id = g['id'] as int;
+                                                final uid = Supabase.instance.client.auth.currentUser?.id;
+                                                if (uid == null) return;
+
+                                                final rows = await Supabase.instance.client
+                                                    .from('members')
+                                                    .select('role')
+                                                    .eq('group_id', id)
+                                                    .eq('user_id', uid)
+                                                    .isFilter('deleted_at', null)
+                                                    .limit(1);
+
+                                                if (rows.isNotEmpty) {
+                                                  final role = rows.first['role'] as String?;
+                                                  if (role == 'owner' || role == 'admin') {
+                                                    if (context.mounted) {
+                                                      showAppSnack(
+                                                        ref,
+                                                        title: 'common.failed'.tr(),
+                                                        message: 'group.cannot_leave_admin'.tr(),
+                                                        type: AppNotice.error,
+                                                      );
+                                                    }
+                                                    return;
+                                                  }
+                                                }
+
+                                                final confirmed = await showDialog<bool>(
+                                                  context: context,
+                                                  builder: (ctx) => AlertDialog(
+                                                    title: Text('Gruptan ayrıl?'),
+                                                    content: Text('group.leave_message'.tr(args: [g['name'] as String])),
+                                                    actions: [
+                                                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('common.cancel'.tr())),
+                                                      FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text('group.leave_confirm'.tr())),
+                                                    ],
+                                                  ),
+                                                );
+                                                if (confirmed != true) return;
+
+                                                await ref.read(memberRepoProvider).leaveGroup(id);
+                                                ref.invalidate(groupsProvider);
+                                                if (context.mounted) {
+                                                  showAppSnack(
+                                                    ref,
+                                                    title: 'common.info'.tr(),
+                                                    message: 'group.you_left'.tr(),
+                                                    type: AppNotice.info,
+                                                  );
+                                                }
+                                              },
+                                            ),
+                                            // (owner/admin ise) sil
+                                            FutureBuilder<String?>(
+                                              future: (() async {
+                                                final uid = Supabase.instance.client.auth.currentUser?.id;
+                                                if (uid == null) return null;
+                                                final rows = await Supabase.instance.client
+                                                    .from('members')
+                                                    .select('role')
+                                                    .eq('group_id', g['id'] as int)
+                                                    .eq('user_id', uid)
+                                                    .isFilter('deleted_at', null)
+                                                    .limit(1);
+                                                if (rows.isNotEmpty) {
+                                                  final r = rows.first['role'];
+                                                  return (r is String) ? r : null;
+                                                }
+                                                return null;
+                                              })(),
+                                              builder: (ctx, snap) {
+                                                final role = snap.data;
+                                                final canDelete = role == 'owner' || role == 'admin';
+                                                if (!canDelete) return const SizedBox.shrink();
+
+                                                return IconButton(
+                                                  icon: const Icon(Icons.delete_outline, size: 20),
+                                                  tooltip: 'group.delete_tooltip'.tr(),
+                                                  onPressed: () async {
+                                                    final id = g['id'] as int;
+                                                    final confirmed = await showDialog<bool>(
+                                                      context: context,
+                                                      builder: (ctx) => AlertDialog(
+                                                        title: Text('group.delete_title'.tr()),
+                                                        content: Text('group.delete_message'.tr(args: [g['name'] as String])),
+                                                        actions: [
+                                                          TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('common.cancel'.tr())),
+                                                          FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text('common.delete'.tr())),
+                                                        ],
+                                                      ),
+                                                    );
+                                                    if (confirmed != true) return;
+
+                                                    await ref.read(groupRepoProvider).softDeleteGroup(id);
+                                                    ref.invalidate(groupsProvider);
+                                                    if (context.mounted) {
+                                                      showAppSnack(
+                                                        ref,
+                                                        title: 'common.success'.tr(),
+                                                        message: 'group.deleted'.tr(),
+                                                        type: AppNotice.success,
+                                                      );
+                                                    }
+                                                  },
+                                                );
+                                              },
+                                            ),
+                                            IconButton(
+                                              icon: const Icon(Icons.share, size: 20),
+                                              tooltip: 'group.invite_link'.tr(),
+                                              onPressed: () async {
+                                                final ok = await ensureSignedIn(context, ref);
+                                                if (!ok) return;
+
+                                                final groupId = g['id'] as int;
+                                                final url = await GroupInviteLinkService.createInviteLink(groupId);
+                                                if (!context.mounted) return;
+
+                                                await showModalBottomSheet(
+                                                  context: context,
+                                                  showDragHandle: true,
+                                                  builder: (ctx) => SafeArea(
+                                                    child: Column(
+                                                      mainAxisSize: MainAxisSize.min,
+                                                      children: [
+                                                        ListTile(
+                                                          leading: const Icon(Icons.link),
+                                                          title: Text('group.invite_copy'.tr()),
+                                                          onTap: () async {
+                                                            await Clipboard.setData(ClipboardData(text: url));
+                                                            Navigator.pop(ctx);
+                                                            showAppSnack(
+                                                              ref,
+                                                              title: 'common.info'.tr(),
+                                                              message: 'group.invite_copied'.tr(),
+                                                              type: AppNotice.info,
+                                                            );
+                                                          },
+                                                        ),
+                                                        ListTile(
+                                                          leading: const Icon(Icons.share),
+                                                          title: Text('group.invite_share'.tr()),
+                                                          onTap: () async {
+                                                            Navigator.pop(ctx);
+                                                            await Share.share(url, subject: 'group.create_invite'.tr());
+                                                          },
+                                                        ),
+                                                      ],
+                                                    ),
+                                                  ),
+                                                );
+                                              },
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
                   ),
                 );
 
@@ -410,6 +446,67 @@ class HomePage extends ConsumerWidget {
         child: const Icon(Icons.add),
       ),
     );
+  }
+  /// 10 parçalı pastel palet
+  static const List<Color> kSoftPalette = [
+    Color(0xFFEDEBFF), // lila
+    Color(0xFFE7F3FF), // açık mavi
+    Color(0xFFFFEEF2), // pembe
+    Color(0xFFFFF3E5), // şeftali
+    Color(0xFFEFFBF1), // mint
+    Color(0xFFEAF7FF), // buz mavisi
+    Color(0xFFFFF0F5), // lavanta pembe
+    Color(0xFFEFF0FF), // perivinkle
+    Color(0xFFEFFAF6), // mint cream
+    Color(0xFFFFFAE5), // açık sarı
+  ];
+
+  /// Basit seed -> renk (gerekirse)
+  Color _softColorFromSeed(String seed) {
+    final h = seed.hashCode.abs();
+    return kSoftPalette[h % kSoftPalette.length];
+  }
+
+  /// Listedeki her grup için renk atar:
+  /// - Önce kullanılmamış renkleri tüketir
+  /// - Palet bittiğinde, bir önceki ile aynı rengi vermez (ardışık tekrar yok)
+  /// - Seed (grup adı) başlangıç ofsetini belirler; görünüm çoğunlukla stabil kalır
+  List<Color> _assignSoftColors(List<String> names) {
+    final int n = kSoftPalette.length;
+    final used = <int>{};
+    final colors = <Color>[];
+    int? prevIdx;
+
+    for (final seed in names) {
+      final base = seed.hashCode.abs() % n;
+      int pick = -1;
+
+      // 1) Kullanılmayan renkleri öncele
+      for (int step = 0; step < n; step++) {
+        final idx = (base + step) % n;
+        if (!used.contains(idx) && idx != prevIdx) {
+          pick = idx;
+          break;
+        }
+      }
+
+      // 2) Hepsi kullanıldıysa: prev ile aynı olmayan ilk rengi seç
+      if (pick == -1) {
+        for (int step = 0; step < n; step++) {
+          final idx = (base + step) % n;
+          if (idx != prevIdx) {
+            pick = idx;
+            break;
+          }
+        }
+      }
+
+      used.add(pick);
+      prevIdx = pick;
+      colors.add(kSoftPalette[pick]);
+    }
+
+    return colors;
   }
 
   Future<String?> _askGroupName(BuildContext context) async {
@@ -456,7 +553,7 @@ class _Pill extends StatelessWidget {
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
-        label,
+        'group.role.$label'.tr(),
         style: Theme.of(context).textTheme.labelSmall?.copyWith(
           color: fg,
           fontWeight: FontWeight.w600,
@@ -535,3 +632,78 @@ class LanguageToggleIcon extends StatelessWidget {
   }
 }
 
+
+
+
+// --- Küçük inline avatarlar (grup listesi altında) ----------------------------
+class _InlineAvatars extends StatelessWidget {
+  const _InlineAvatars({required this.members});
+  final List<Map<String, dynamic>> members;
+
+  @override
+  Widget build(BuildContext context) {
+
+    final visible = members.take(3).toList();
+    final width = (visible.length <= 1) ? 22.0 : (22.0 + (visible.length - 1) * 16.0);
+    return SizedBox(
+      width: width,
+      height: 22,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: List.generate(visible.length, (i) {
+          final m = visible[i];
+          final name = (m['name'] as String?) ?? '';
+          final initials = _initials(name);
+          final bg = _avatarColorFor(name);
+          return Positioned(
+            left: i * 16.0,
+            child: CircleAvatar(
+              radius: 11,
+              backgroundColor: Colors.white.withValues(alpha: 0.5), // ince beyaz kenar efekti
+              child: CircleAvatar(
+                radius: 10,
+                backgroundColor: bg,
+                child: Text(
+                  initials,
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w800,
+                    color: Colors.white,
+                  ),
+                ),
+              ),
+            ),
+          );
+        }),
+      ),
+    );
+  }
+}
+
+String _initials(String name) {
+  final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+  if (parts.isEmpty) return '?';
+  if (parts.length == 1) return parts.first.characters.take(2).toString().toUpperCase();
+  return (parts.first.characters.take(1).toString() + parts.last.characters.take(1).toString()).toUpperCase();
+}
+
+// Avatar arka plan rengi — 12 tonluk sabit paletten, isme göre
+const List<Color> _kAvatarPalette = [
+  Color(0xFF6C63FF), // mor
+  Color(0xFF2F88FF), // mavi
+  Color(0xFFFF6B6B), // kırmızı
+  Color(0xFFFF9E47), // turuncu
+  Color(0xFF00B894), // teal
+  Color(0xFF10B981), // yeşil
+  Color(0xFF6366F1), // indigo
+  Color(0xFFEC4899), // pembe
+  Color(0xFFF59E0B), // amber
+  Color(0xFF3B82F6), // azure
+  Color(0xFF14B8A6), // aqua
+  Color(0xFF8B5CF6), // lavanta
+];
+
+Color _avatarColorFor(String seed) {
+  final h = seed.hashCode.abs();
+  return _kAvatarPalette[h % _kAvatarPalette.length];
+}

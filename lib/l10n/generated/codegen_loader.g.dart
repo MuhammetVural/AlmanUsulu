@@ -31,9 +31,15 @@ class CodegenLoader extends AssetLoader{
     "info": "Bilgilendirme"
   },
   "group": {
+    "role": {
+      "owner": "Kurucu",
+      "admin": "Admin",
+      "member": "Üye"
+    },
+    "member_count": "{} Üye",
     "title": "Gruplar",
     "empty": "Henüz grup yok. + ile ekleyin.",
-    "created_at": "Oluşturulma Tarihi:",
+    "created_at": "Oluşturulma Tarihi: ",
     "edit_name": "Adı düzenle",
     "name_dialog_title": "Grup adını düzenle",
     "name_hint": "Yeni grup adı",
@@ -137,6 +143,12 @@ static const Map<String,dynamic> _en = {
     "info": "Information"
   },
   "group": {
+    "role": {
+      "owner": "Owner",
+      "admin": "Admin",
+      "member": "Member"
+    },
+    "member_count": "{} Members",
     "title": "Groups",
     "empty": "No groups yet. Add with +.",
     "created_at": "Created At:",

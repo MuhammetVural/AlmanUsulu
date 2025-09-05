@@ -5,7 +5,7 @@ ThemeData lightTheme() {
   final seed = const Color(0xFF2BB673);
   final scheme = ColorScheme.fromSeed(seedColor: seed, brightness: Brightness.light);
 
-  const Color _bg       = Color(0xFFF2F1F6); // sayfa
+  const Color _bg       = Color(0xFFF6F5F8); // sayfa
   const Color _card     = Colors.white;      // kart/input
   const Color _primary  = Color(0xFF2BB673); // buton/aktif
   const Color _outline  = Color(0xFFE2E4EA);
@@ -16,9 +16,9 @@ ThemeData lightTheme() {
     brightness: Brightness.light,
     colorScheme: scheme,
 
-    scaffoldBackgroundColor: _bg,
+    scaffoldBackgroundColor: _card,
     appBarTheme: const AppBarTheme(
-      backgroundColor: _bg,
+      backgroundColor: _card  ,
       foregroundColor: Colors.black,
       centerTitle: true,
       elevation: 0,
@@ -38,11 +38,11 @@ ThemeData lightTheme() {
     ),
     // Kartlar
     cardTheme: CardThemeData(
-      color: _card,
+      color: _bg,
       elevation: 2,
       shadowColor: Colors.black.withValues(alpha: .06),
       surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
     ),
     // Arama/Input
