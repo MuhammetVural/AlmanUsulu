@@ -20,6 +20,7 @@
       "admin": "Admin",
       "member": "Member"
     },
+    "joined_group": "You joined the group",
     "member_count": "{} Members",
     "title": "Groups",
     "empty": "No groups yet. Add with +.",
