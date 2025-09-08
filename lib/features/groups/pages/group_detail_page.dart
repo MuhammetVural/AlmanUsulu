@@ -6,6 +6,7 @@ import 'package:local_alman_usulu/widgets/loading_list.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../app/providers.dart';
+import '../../../app/theme/theme_utils.dart';
 import '../../../core/ui/notifications.dart';
 import '../../../data/repo/auth_repo.dart';
 import '../../../services/group_invite_link_service.dart';
@@ -19,15 +20,21 @@ import '../presentation/widgets/section_card.dart';
 class GroupDetailPage extends ConsumerWidget {
   final int groupId;
   final String groupName;
+  final Color? brandBase;
 
   const GroupDetailPage({
     super.key,
     required this.groupId,
     required this.groupName,
+    this.brandBase,
   });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+
+    final Color? brandTint =
+    (brandBase != null) ? adaptSoftForTheme(brandBase!, context) : null;
+
     // 👇 Benim bu gruptaki rolüm
     final myRoleAsync = ref.watch(myRoleForGroupProvider(groupId));
     final String? myRole =
@@ -36,7 +43,7 @@ class GroupDetailPage extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(groupName),
+          title: Text(groupName),
         actions: const [
           Padding(
             padding: EdgeInsets.only(right: 4),
@@ -180,46 +187,58 @@ class GroupDetailPage extends ConsumerWidget {
                 right: 12,
               ),
               children: [
-                SectionCard(
-                  title: 'groupDetail.balance_summary'.tr(),
-                  children: balanceItems,
-                ),
-                const SizedBox(height: 12),
-                SectionCard(
-                  title: 'groupDetail.expenses'.tr(),
-                  header: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        'groupDetail.expenses'.tr(),
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w700),
-                      ),
-                      IconButton(
-                        tooltip: hasFilter
-                            ? 'groupDetail.filter_active_edit'.tr()
-                            : 'groupDetail.filter'.tr(),
-                        icon: Icon(
-                          Icons.filter_list,
-                          color: hasFilter
-                              ? Theme.of(context).colorScheme.primary
-                              : null,
-                        ),
-                        onPressed: () => openExpenseFilterSheet(
-                          context,
-                          ref,
-                          groupId,
-                          members,
-                        ),
-                      ),
-                    ],
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: SectionCard(
+                    title: 'groupDetail.balance_summary'.tr(),
+                    brandTint: brandTint,
+                    children: balanceItems,
                   ),
-                  children: expenseItems,
                 ),
                 const SizedBox(height: 12),
-                SectionCard(
-                  title: 'groupDetail.members'.tr(),
-                  children: memberItems,
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: SectionCard(
+                    title: 'groupDetail.expenses'.tr(),
+                    brandTint: brandTint,
+                    header: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'groupDetail.expenses'.tr(),
+                          style: Theme.of(context).textTheme.titleMedium
+                              ?.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        IconButton(
+                          tooltip: hasFilter
+                              ? 'groupDetail.filter_active_edit'.tr()
+                              : 'groupDetail.filter'.tr(),
+                          icon: Icon(
+                            Icons.filter_list,
+                            color: hasFilter
+                                ? Theme.of(context).colorScheme.primary
+                                : null,
+                          ),
+                          onPressed: () => openExpenseFilterSheet(
+                            context,
+                            ref,
+                            groupId,
+                            members,
+                          ),
+                        ),
+                      ],
+                    ),
+                    children: expenseItems,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: SectionCard(
+                    title: 'groupDetail.members'.tr(),
+                    brandTint: brandTint,
+                    children: memberItems,
+                  ),
                 ),
               ],
             );

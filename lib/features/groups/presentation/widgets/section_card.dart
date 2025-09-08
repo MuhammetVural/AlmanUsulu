@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../app/theme/theme_utils.dart';
 import 'faded_divider.dart';
 
 class SectionCard extends StatelessWidget {
@@ -7,17 +8,34 @@ class SectionCard extends StatelessWidget {
     required this.title,
     required this.children,
     this.header,
+    this.brandTint,
   });
 
   final String title;
   final List<Widget> children;
   final Widget? header;
+  final Color? brandTint;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      elevation: 2,
-      child: Padding(
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+
+    // ⬇️ Sorduğun satırlar tam burada kullanılacak
+    final bg = brandTint != null
+        ? adaptSoftForTheme(brandTint!, context)
+        : cs.surfaceContainerHighest;
+
+    final border = (brandTint ?? cs.outlineVariant).withOpacity(.35);
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(color: border, width: 1),
+        ),
         padding: const EdgeInsets.all(12),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

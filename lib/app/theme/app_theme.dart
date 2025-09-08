@@ -38,7 +38,7 @@ ThemeData lightTheme() {
     ),
     // Kartlar
     cardTheme: CardThemeData(
-      color: _bg,
+      color: Color(0xFFE8F5E9),
       elevation: 2,
       shadowColor: Colors.black.withValues(alpha: .06),
       surfaceTintColor: Colors.transparent,
