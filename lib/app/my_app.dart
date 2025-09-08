@@ -23,9 +23,11 @@ class MyApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final navKey = ref.watch(navigatorKeyProvider);
     final mode = ref.watch(themeModeProvider);
     final scaffoldKey = ref.watch(scaffoldMessengerKeyProvider);
     return MaterialApp(
+      navigatorKey: navKey,
       debugShowCheckedModeBanner: false,
       scaffoldMessengerKey: scaffoldKey,
       title: 'Alman Usulü',

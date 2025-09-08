@@ -9,6 +9,10 @@ import '../data/repo/member_repo.dart';
 import '../data/repo/expense_repo.dart';
 import '../services/group_invite_link_service.dart';
 
+final navigatorKeyProvider = Provider<GlobalKey<NavigatorState>>(
+      (_) => GlobalKey<NavigatorState>(),
+);
+
 final supabaseClientProvider = Provider<SupabaseClient>((ref) {
   return Supabase.instance.client;
 });
