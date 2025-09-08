@@ -23,6 +23,7 @@
       "member": "Üye"
     },
     "member_count": "{} Üye",
+    "joined_group": "Grubuna katıldınız",
     "title": "Gruplar",
     "empty": "Henüz grup yok. + ile ekleyin.",
     "created_at": "Oluşturulma Tarihi: ",

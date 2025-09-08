@@ -23,6 +23,79 @@ class HomePage extends ConsumerWidget {
     // Davet linki dinleyicisini ayağa kaldır (idempotent)
     ref.watch(inviteLinksInitProvider);
 
+    // Helper: joined snackbar + reset
+    void _showJoinedSnack(int gid) {
+      Future.microtask(() async {
+        try {
+          await ref.read(groupsProvider.future);
+        } catch (_) {}
+
+        if (!context.mounted) return;
+
+        String groupName = 'Grup';
+        final groupsValue = ref.read(groupsProvider);
+        groupsValue.whenData((rows) {
+          final match = rows.cast<Map<String, dynamic>>().where((g) => g['id'] == gid);
+          if (match.isNotEmpty) {
+            groupName = (match.first['name'] as String?) ?? 'Grup';
+          }
+        });
+
+        // Bazı senaryolarda HomePage mount/demount sırasında Snackbar yutulabiliyor.
+        // Kök (root) Navigator'un context'i ile ve bir sonraki frame'de göstermek daha güvenli.
+        final rootCtx = Navigator.of(context, rootNavigator: true).overlay?.context ?? context;
+
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!context.mounted) return;
+
+          showAppSnack(
+            ref,
+            title: 'common.success'.tr(),
+            message: 'group.joined_group'.tr(args: [groupName]),
+            type: AppNotice.success,
+          );
+        });
+
+        ref.read(lastAcceptedGroupIdProvider.notifier).state = null;
+      });
+    }
+
+    // Eğer değer bu build'ten önce set edildiyse hemen göster
+    final _pendingGid = ref.watch(lastAcceptedGroupIdProvider);
+    if (_pendingGid != null) {
+      _showJoinedSnack(_pendingGid);
+    }
+
+    // Davet kabul edildiğinde sadece bilgilendirme göster
+    ref.listen<int?>(lastAcceptedGroupIdProvider, (prev, next) {
+      if (next == null) return;
+      _showJoinedSnack(next);
+    });
+
+    // Fallback: Gruplar listesi arttıysa, yeni eklenen grup için snackbar göster.
+    // Bu, join sinyalini kaçırdığımız senaryolarda (ör. timing) devreye girer.
+    ref.listen(groupsProvider, (prev, next) {
+      final prevRows = prev?.asData?.value ?? const <dynamic>[];
+      final nextRows = next.asData?.value ?? const <dynamic>[];
+
+      try {
+        final prevIds = prevRows
+            .map((g) => (g as Map<String, dynamic>)['id'] as int)
+            .toSet();
+        final nextIds = nextRows
+            .map((g) => (g as Map<String, dynamic>)['id'] as int)
+            .toSet();
+
+        final added = nextIds.difference(prevIds);
+        if (added.isNotEmpty) {
+          final gid = added.first;
+          _showJoinedSnack(gid);
+        }
+      } catch (_) {
+        // types / null issues — sessiz geç
+      }
+    });
+
 
 
     // Başka biri Login olunca sayfayı yeniler
@@ -139,8 +212,8 @@ class HomePage extends ConsumerWidget {
                                             final key = (role == 'owner')
                                                 ? 'owner'
                                                 : (role == 'admin')
-                                                    ? 'admin'
-                                                    : 'member';
+                                                ? 'admin'
+                                                : 'member';
                                             final color = (role == 'owner' || role == 'admin')
                                                 ? Colors.green
                                                 : Colors.amber;
