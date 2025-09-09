@@ -75,7 +75,9 @@ class HomePage extends ConsumerWidget {
     // Fallback: Gruplar listesi arttıysa, yeni eklenen grup için snackbar göster.
     // Bu, join sinyalini kaçırdığımız senaryolarda (ör. timing) devreye girer.
     ref.listen(groupsProvider, (prev, next) {
-      final prevRows = prev?.asData?.value ?? const <dynamic>[];
+      if (prev == null || !prev.hasValue) return;
+      if (!next.hasValue) return;
+      final prevRows = prev.asData?.value ?? const <dynamic>[];
       final nextRows = next.asData?.value ?? const <dynamic>[];
 
       try {

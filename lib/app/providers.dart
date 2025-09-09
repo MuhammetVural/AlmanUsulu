@@ -47,6 +47,7 @@ final inviteLinksInitProvider = Provider<void>((ref) {
         debugPrint('✅ Invite kabul edildi. group_id=$gid');
         // UI'ye haber ver (Snackbar vb.)
         ref.read(lastAcceptedGroupIdProvider.notifier).state = gid;
+
         // 🔄 Grupları yenile
         ref.invalidate(groupsProvider);
         // İsteğe bağlı: gid != null ise members/expenses invalidate edilebilir
@@ -61,6 +62,7 @@ final inviteLinksInitProvider = Provider<void>((ref) {
 });
 // Son kabul edilen davetin group_id'sini UI'ye iletmek için
 final lastAcceptedGroupIdProvider = StateProvider<int?>((ref) => null);
+final lastAcceptedGroupNameProvider = StateProvider<String?>((_) => null);
 
 final groupRepoProvider = Provider<GroupRepo>((ref) => GroupRepo());
 final memberRepoProvider = Provider<MemberRepo>((ref) => MemberRepo());

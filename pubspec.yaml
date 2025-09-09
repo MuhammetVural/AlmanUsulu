@@ -28,51 +28,62 @@ dependencies:
   firebase_core: ^3.4.0
   app_links: ^6.4.1
   share_plus: ^10.0.0
-  flutter_native_splash: ^2.4.6
   shimmer: ^3.0.0
   easy_localization: ^3.0.8
   flutter_speed_dial: ^7.0.0
+  flutter_native_splash: ^2.4.3
+
 
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-
+  flutter_launcher_icons: ^0.14.4
   flutter_lints: ^5.0.0
   build_runner: ^2.4.11
   freezed: ^2.4.7
   auto_route_generator: ^8.0.0
 
+
+
+
+
+
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
+
 
 # The following section is specific to Flutter packages.
 flutter:
   uses-material-design: true
   assets:
     - assets/language/
+    - assets/brand/
     - assets/patterns/
-    - assets/brand/logo.png
     - assets/onboarding/avatar1.png
     - assets/onboarding/avatar2.png
 
+flutter_launcher_icons:
+  image_path: assets/brand/app_icon.png   # 1024x1024
+  android: true
+  ios: true
+  min_sdk_android: 21
+  remove_alpha_ios: true
+  # Android adaptive icon (Android 8+)
+  adaptive_icon_background: "#2BB673"       # ya da assets/brand/icon_bg.png
+  adaptive_icon_foreground: assets/brand/app_icon.png
+  adaptive_icon_monochrome: assets/brand/app_icon.png  # Android 13+ tek renkli
 
 flutter_native_splash:
   color: "#EFFAF6"
   color_dark: "#061F19"
-  image: assets/brand/logo.png
-  image_dark: assets/brand/logo_dark.png
-  android_gravity: center
-  ios_content_mode: center
-  branding: assets/brand/branding.png
-  branding_dark: assets/brand/branding_dark.png
+  image: assets/brand/app_icon.png
+  image_dark: assets/brand/app_icon_dark.png
   android_12:
     color: "#EFFAF6"
     color_dark: "#061F19"
-    image: assets/brand/logo_android12.png
-    image_dark: assets/brand/logo_android12_dark.png
-    branding: assets/brand/branding_android12.png
-    branding_dark: assets/brand/branding_android12_dark.png
+    image: assets/brand/app_icon_little.png
+    image_dark: assets/brand/app_icon_little_dark.png
   android: true
   ios: true
   web: false

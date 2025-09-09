@@ -1,4 +1,6 @@
 {
+  "app_name": "Split The Bill",
+  "app_title": "Share, close the account ✨",
   "common": {
     "filter": "Filter",
     "ok": "OK",

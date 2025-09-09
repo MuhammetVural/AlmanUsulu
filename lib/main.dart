@@ -14,6 +14,7 @@ import 'app/splash_gate.dart';
 import 'features/groups/home_page.dart';
 
 Future<void> main() async {
+
   WidgetsFlutterBinding.ensureInitialized();
   Intl.defaultLocale = 'tr';
   await Firebase.initializeApp(

@@ -1,3 +1,4 @@
+import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -137,7 +138,7 @@ class _Logo extends StatelessWidget {
         ),
         const SizedBox(height: 20),
         Text(
-          'Bölüş',
+          'app_name'.tr(),
           style: Theme.of(context).textTheme.headlineSmall?.copyWith(
             fontWeight: FontWeight.w700,
             color: isDark ? Colors.white : Colors.black87,
@@ -145,7 +146,7 @@ class _Logo extends StatelessWidget {
         ),
         const SizedBox(height: 6),
         Text(
-          'Paylaş, bölüş, hesabı kapat ✨',
+          'app_title'.tr(),
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: (isDark ? Colors.white : Colors.black87).withValues(alpha: .75),
           ),
