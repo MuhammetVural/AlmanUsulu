@@ -69,10 +69,12 @@ ThemeData lightTheme() {
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: scheme.surface,
       surfaceTintColor: Colors.transparent,
+      showDragHandle: true,                    // handle açık
+      dragHandleColor: Colors.grey.shade300,   // gri çizgi
+      dragHandleSize: const Size(80, 5),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      showDragHandle: true,
     ),
     extensions: const [
       AppTokens(
@@ -178,6 +180,8 @@ ThemeData darkTheme() {
     bottomSheetTheme: BottomSheetThemeData(
       backgroundColor: scheme.surfaceContainerLow,
       surfaceTintColor: Colors.transparent,
+      dragHandleColor: Colors.grey.shade400,   // gri çizgi
+      dragHandleSize: const Size(80, 5),
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),

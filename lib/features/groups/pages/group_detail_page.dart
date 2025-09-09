@@ -2,6 +2,7 @@ import 'package:easy_localization/easy_localization.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_speed_dial/flutter_speed_dial.dart';
 import 'package:local_alman_usulu/widgets/loading_list.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -16,6 +17,121 @@ import '../presentation/widgets/expense_tile.dart';
 import '../presentation/widgets/member_tile.dart';
 import '../presentation/widgets/section_card.dart';
 
+Future<String?> askText(BuildContext context, String title) async {
+  final ctrl = TextEditingController();
+
+  return showDialog<String>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(title),
+      content: TextField(controller: ctrl, autofocus: true),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: Text('common.cancel'.tr()),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.pop(ctx, ctrl.text),
+          child: Text('common.ok'.tr()),
+        ),
+      ],
+    ),
+  );
+}
+
+Future<void> addExpenseFlow(
+    BuildContext context,
+    WidgetRef ref,
+    int groupId,
+    ) async {
+  final members = await ref.read(memberRepoProvider).listMembers(groupId);
+  if (members.isEmpty) {
+    if (context.mounted) {
+      showAppSnack(
+        ref,
+        title: 'common.failed'.tr(),
+        message: 'groupDetail.no_members_yet'.tr(),
+        type: AppNotice.error,
+      );
+    }
+    return;
+  }
+  final title = await askText(context, 'groupDetail.add_expense'.tr());
+  if (title == null) return;
+
+  final amountStr = await askText(context, 'Tutar (ör. 120.50)');
+  if (amountStr == null) return;
+  final amount = double.tryParse(amountStr.replaceAll(',', '.'));
+  if (amount == null || amount <= 0) {
+    if (context.mounted) {
+      showAppSnack(
+        ref,
+        title: 'common.failed'.tr(),
+        message: 'dialogs.invalid_amount'.tr(),
+        type: AppNotice.error,
+      );
+    }
+    return;
+  }
+
+  final uid = Supabase.instance.client.auth.currentUser?.id;
+  if (uid == null) {
+    if (context.mounted) {
+      showAppSnack(
+        ref,
+        title: 'common.failed'.tr(),
+        message: 'dialogs.invalid_amount'.tr(),
+        type: AppNotice.error,
+      );
+    }
+    return;
+  }
+
+  final me = members.firstWhere(
+        (m) => m['user_id'] == uid,
+    orElse: () => throw Exception('dialogs.no_see_member'),
+  );
+  final myRole = (me['role'] as String?) ?? 'member';
+
+  int? payerId;
+  if (myRole == 'owner' || myRole == 'admin') {
+    payerId = await showDialog<int>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: Text('dialogs.payer'.tr()),
+        children: members
+            .map(
+              (m) => SimpleDialogOption(
+            onPressed: () => Navigator.pop(ctx, m['id'] as int),
+            child: Text(m['name'] as String),
+          ),
+        )
+            .toList(),
+      ),
+    );
+    if (payerId == null) return;
+  } else {
+    payerId = (me['id'] as num).toInt();
+  }
+
+  final participantIds = members.map<int>((m) => m['id'] as int).toList();
+
+  await ref.read(expenseRepoProvider).addExpense(
+    groupId: groupId,
+    title: title,
+    amount: amount,
+    payerId: payerId,
+    participantIds: participantIds,
+  );
+
+  ref
+    ..invalidate(expensesProvider(groupId))
+    ..invalidate(filteredExpensesProvider)
+    ..invalidate(visibleExpensesProvider(groupId))
+    ..invalidate(balancesProvider(groupId));
+}
+
+
 class GroupDetailPage extends ConsumerWidget {
   final int groupId;
   final String groupName;
@@ -28,6 +144,8 @@ class GroupDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+
+    final cs = Theme.of(context).colorScheme;
     // 👇 Benim bu gruptaki rolüm
     final myRoleAsync = ref.watch(myRoleForGroupProvider(groupId));
     final String? myRole =
@@ -227,7 +345,132 @@ class GroupDetailPage extends ConsumerWidget {
         ),
       ),
 
-      floatingActionButton: _Fab(groupId: groupId),
+
+      // GroupDetailPage build() içinde:
+      floatingActionButton: SpeedDial(
+        icon: Icons.add,
+        activeIcon: Icons.close,
+        backgroundColor: cs.primaryContainer,
+        foregroundColor: cs.onPrimaryContainer,
+        overlayColor: Colors.black,
+        overlayOpacity: 0.15,
+        spacing: 6,
+        spaceBetweenChildren: 8,
+        elevation: 8,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+
+        children: [
+          SpeedDialChild(
+            child: const Icon(Icons.person_add_alt_1),
+            label: 'groupDetail.add_member'.tr(),
+            onTap: () async {
+              // mevcut akışın birebir aynısı:
+              final ok = await ensureSignedIn(context, ref);
+              if (!ok) return;
+              final name = await askText(context, 'dialogs.add_member_name'.tr());
+              if (name == null || name.trim().isEmpty) return;
+
+              final newMemberId = await ref.read(memberRepoProvider).addMember(groupId, name.trim());
+              ref.invalidate(membersProvider(groupId));
+
+              final hasExpenses = await ref.read(expenseRepoProvider).hasActiveExpenses(groupId);
+              if (!hasExpenses) {
+                if (context.mounted) {
+                  showAppSnack(ref,
+                    title: 'common.success'.tr(),
+                    message: 'dialogs.added_member'.tr(),
+                    type: AppNotice.success,
+                  );
+                }
+                return;
+              }
+
+              final includePast = await showDialog<bool>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: Text('dialogs.include_in_budget_title'.tr()),
+                  content: Text('dialogs.include_in_budget_message'.tr()),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('common.no'.tr())),
+                    FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text('common.yes'.tr())),
+                  ],
+                ),
+              );
+              if (includePast == true) {
+                await ref.read(memberRepoProvider).includeMemberInPastExpensesFast(groupId, newMemberId);
+                ref
+                  ..invalidate(expensesProvider(groupId))
+                  ..invalidate(filteredExpensesProvider)
+                  ..invalidate(visibleExpensesProvider(groupId))
+                  ..invalidate(balancesProvider(groupId));
+                if (context.mounted) {
+                  showAppSnack(ref,
+                    title: 'common.success'.tr(),
+                    message: 'dialogs.included_past'.tr(),
+                    type: AppNotice.success,
+                  );
+                }
+              } else {
+                if (context.mounted) {
+                  showAppSnack(ref,
+                    title: 'common.success'.tr(),
+                    message: 'dialogs.added_member'.tr(),
+                    type: AppNotice.success,
+                  );
+                }
+              }
+            },
+          ),
+          SpeedDialChild(
+            child: const Icon(Icons.receipt_long),
+            label: 'groupDetail.add_expense'.tr(),
+            onTap: () => addExpenseFlow(context, ref, groupId),
+          ),
+          SpeedDialChild(
+            child: const Icon(Icons.share),
+            label: 'group.invite_link'.tr(),
+            onTap: () async {
+              final ok = await ensureSignedIn(context, ref);
+              if (!ok) return;
+              final url = await GroupInviteLinkService.createInviteLink(groupId);
+              if (!context.mounted) return;
+
+              await showModalBottomSheet(
+                context: context,
+                showDragHandle: true,
+                builder: (ctx) => SafeArea(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      ListTile(
+                        leading: const Icon(Icons.link),
+                        title: Text('group.invite_copy'.tr()),
+                        onTap: () async {
+                          await Clipboard.setData(ClipboardData(text: url));
+                          Navigator.pop(ctx);
+                          showAppSnack(ref,
+                            title: 'common.info'.tr(),
+                            message: 'group.invite_copied'.tr(),
+                            type: AppNotice.info,
+                          );
+                        },
+                      ),
+                      ListTile(
+                        leading: const Icon(Icons.share),
+                        title: Text('group.invite_share'.tr()),
+                        onTap: () async {
+                          Navigator.pop(ctx);
+                          await Share.share(url, subject: 'group.create_invite'.tr());
+                        },
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
     );
   }
 }
@@ -378,8 +621,9 @@ class _Fab extends ConsumerWidget {
         ),
         PopupMenuItem(value: 'invite', child: Text('groupDetail.invite'.tr())),
       ],
-      child: const FloatingActionButton(
+      child:  FloatingActionButton(
         child: Icon(Icons.add),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         onPressed: null,
       ),
     );
