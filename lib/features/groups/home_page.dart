@@ -435,35 +435,41 @@ class HomePage extends ConsumerWidget {
                                                 if (!context.mounted) return;
 
                                                 await showModalBottomSheet(
+
                                                   context: context,
                                                   showDragHandle: true,
+                                                  enableDrag: true,
+
                                                   builder: (ctx) => SafeArea(
-                                                    child: Column(
-                                                      mainAxisSize: MainAxisSize.min,
-                                                      children: [
-                                                        ListTile(
-                                                          leading: const Icon(Icons.link),
-                                                          title: Text('group.invite_copy'.tr()),
-                                                          onTap: () async {
-                                                            await Clipboard.setData(ClipboardData(text: url));
-                                                            Navigator.pop(ctx);
-                                                            showAppSnack(
-                                                              ref,
-                                                              title: 'common.info'.tr(),
-                                                              message: 'group.invite_copied'.tr(),
-                                                              type: AppNotice.info,
-                                                            );
-                                                          },
-                                                        ),
-                                                        ListTile(
-                                                          leading: const Icon(Icons.share),
-                                                          title: Text('group.invite_share'.tr()),
-                                                          onTap: () async {
-                                                            Navigator.pop(ctx);
-                                                            await Share.share(url, subject: 'group.create_invite'.tr());
-                                                          },
-                                                        ),
-                                                      ],
+                                                    child: Padding(
+                                                      padding: const EdgeInsets.symmetric(horizontal: 24),
+                                                      child: Column(
+                                                        mainAxisSize: MainAxisSize.min,
+                                                        children: [
+                                                          ListTile(
+                                                            leading: const Icon(Icons.link),
+                                                            title: Text('group.invite_copy'.tr()),
+                                                            onTap: () async {
+                                                              await Clipboard.setData(ClipboardData(text: url));
+                                                              Navigator.pop(ctx);
+                                                              showAppSnack(
+                                                                ref,
+                                                                title: 'common.info'.tr(),
+                                                                message: 'group.invite_copied'.tr(),
+                                                                type: AppNotice.info,
+                                                              );
+                                                            },
+                                                          ),
+                                                          ListTile(
+                                                            leading: const Icon(Icons.share_outlined),
+                                                            title: Text('group.invite_share'.tr()),
+                                                            onTap: () async {
+                                                              Navigator.pop(ctx);
+                                                              await Share.share(url, subject: 'group.create_invite'.tr());
+                                                            },
+                                                          ),
+                                                        ],
+                                                      ),
                                                     ),
                                                   ),
                                                 );
