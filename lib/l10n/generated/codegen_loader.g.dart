@@ -15,6 +15,8 @@ class CodegenLoader extends AssetLoader{
   }
 
   static const Map<String,dynamic> _tr = {
+  "app_name": "Alman Usulü",
+  "app_title": "Paylaş, bölüş, hesabı kapat ✨",
   "common": {
     "filter": "Filtrele",
     "ok": "Tamam",
@@ -37,6 +39,7 @@ class CodegenLoader extends AssetLoader{
       "member": "Üye"
     },
     "member_count": "{} Üye",
+    "joined_group": "Grubuna katıldınız",
     "title": "Gruplar",
     "empty": "Henüz grup yok. + ile ekleyin.",
     "created_at": "Oluşturulma Tarihi: ",
@@ -127,6 +130,8 @@ class CodegenLoader extends AssetLoader{
   }
 };
 static const Map<String,dynamic> _en = {
+  "app_name": "Split The Bill",
+  "app_title": "Share, close the account ✨",
   "common": {
     "filter": "Filter",
     "ok": "OK",
@@ -148,6 +153,7 @@ static const Map<String,dynamic> _en = {
       "admin": "Admin",
       "member": "Member"
     },
+    "joined_group": "You joined the group",
     "member_count": "{} Members",
     "title": "Groups",
     "empty": "No groups yet. Add with +.",
