@@ -132,8 +132,15 @@ class _Logo extends StatelessWidget {
             ],
             border: Border.all(color: const Color(0xFF0E9F6E).withValues(alpha:  .18), width: 1),
           ),
-          child: const Center(
-            child: Icon(Icons.groups_2_rounded, size: 56, color: Color(0xFF0E9F6E)),
+          child: Center(
+            child: Image.asset(
+              isDark
+                  ? 'assets/brand/app_icon_dark.png'
+                  : 'assets/brand/app_icon.png',
+
+              fit: BoxFit.cover,
+              filterQuality: FilterQuality.high,
+            ),
           ),
         ),
         const SizedBox(height: 20),

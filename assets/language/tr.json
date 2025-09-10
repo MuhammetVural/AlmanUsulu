@@ -64,6 +64,7 @@
     "error_expenses": "Harcama hatası: {0}",
     "error_balances": "Bakiye hatası: {0}",
     "add_member": "Üye ekle",
+    "only_admin_owner": "Sadece kurucu veya yönetici üye ekleyebilir",
     "add_expense": "Harcama ekle",
     "invite": "Davet linki"
   },

@@ -151,6 +151,7 @@ class GroupDetailPage extends ConsumerWidget {
     final String? myRole =
         myRoleAsync.asData?.value; // 'owner' | 'admin' | 'member' | null
     final hasFilter = ref.watch(currentExpenseFilterProvider(groupId)) != null;
+    final bool canManage = (myRole == 'owner' || myRole == 'admin');
 
     return Scaffold(
       appBar: AppBar(
@@ -360,23 +361,39 @@ class GroupDetailPage extends ConsumerWidget {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
 
         children: [
+
           SpeedDialChild(
             child: const Icon(Icons.person_add_alt_1),
             label: 'groupDetail.add_member'.tr(),
             onTap: () async {
-              // mevcut akışın birebir aynısı:
+              if (!canManage) {
+                if (context.mounted) {
+                  showAppSnack(
+                    ref,
+                    title: 'common.attention'.tr(),
+                    message: 'groupDetail.only_admin_owner'.tr(),
+                    type: AppNotice.error,
+                  );
+                }
+                return; // 🔒 yetki yoksa sadece uyarı
+              }
+
+              // ✅ yetki varsa mevcut akış:
               final ok = await ensureSignedIn(context, ref);
               if (!ok) return;
               final name = await askText(context, 'dialogs.add_member_name'.tr());
               if (name == null || name.trim().isEmpty) return;
 
-              final newMemberId = await ref.read(memberRepoProvider).addMember(groupId, name.trim());
+              final newMemberId = await ref.read(memberRepoProvider)
+                  .addMember(groupId, name.trim());
               ref.invalidate(membersProvider(groupId));
 
-              final hasExpenses = await ref.read(expenseRepoProvider).hasActiveExpenses(groupId);
+              final hasExpenses = await ref.read(expenseRepoProvider)
+                  .hasActiveExpenses(groupId);
               if (!hasExpenses) {
                 if (context.mounted) {
-                  showAppSnack(ref,
+                  showAppSnack(
+                    ref,
                     title: 'common.success'.tr(),
                     message: 'dialogs.added_member'.tr(),
                     type: AppNotice.success,
@@ -391,20 +408,24 @@ class GroupDetailPage extends ConsumerWidget {
                   title: Text('dialogs.include_in_budget_title'.tr()),
                   content: Text('dialogs.include_in_budget_message'.tr()),
                   actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text('common.no'.tr())),
-                    FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text('common.yes'.tr())),
+                    TextButton(onPressed: () => Navigator.pop(ctx, false),
+                        child: Text('common.no'.tr())),
+                    FilledButton(onPressed: () => Navigator.pop(ctx, true),
+                        child: Text('common.yes'.tr())),
                   ],
                 ),
               );
               if (includePast == true) {
-                await ref.read(memberRepoProvider).includeMemberInPastExpensesFast(groupId, newMemberId);
+                await ref.read(memberRepoProvider)
+                    .includeMemberInPastExpensesFast(groupId, newMemberId);
                 ref
                   ..invalidate(expensesProvider(groupId))
                   ..invalidate(filteredExpensesProvider)
                   ..invalidate(visibleExpensesProvider(groupId))
                   ..invalidate(balancesProvider(groupId));
                 if (context.mounted) {
-                  showAppSnack(ref,
+                  showAppSnack(
+                    ref,
                     title: 'common.success'.tr(),
                     message: 'dialogs.included_past'.tr(),
                     type: AppNotice.success,
@@ -412,7 +433,8 @@ class GroupDetailPage extends ConsumerWidget {
                 }
               } else {
                 if (context.mounted) {
-                  showAppSnack(ref,
+                  showAppSnack(
+                    ref,
                     title: 'common.success'.tr(),
                     message: 'dialogs.added_member'.tr(),
                     type: AppNotice.success,
@@ -420,6 +442,18 @@ class GroupDetailPage extends ConsumerWidget {
                 }
               }
             },
+            // İstersen görsel olarak da hafif soluk bırakmaya devam edebilirsin:
+            backgroundColor: canManage
+                ? null
+                : Theme.of(context).colorScheme.surfaceVariant,
+            foregroundColor: canManage
+                ? null
+                : Theme.of(context).colorScheme.onSurface.withOpacity(0.38),
+            labelStyle: canManage
+                ? null
+                : Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+            ),
           ),
           SpeedDialChild(
             child: const Icon(Icons.receipt_long),

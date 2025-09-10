@@ -78,6 +78,7 @@ class CodegenLoader extends AssetLoader{
     "error_expenses": "Harcama hatası: {0}",
     "error_balances": "Bakiye hatası: {0}",
     "add_member": "Üye ekle",
+    "only_admin_owner": "Sadece kurucu veya yönetici üye ekleyebilir",
     "add_expense": "Harcama ekle",
     "invite": "Davet linki"
   },
@@ -194,6 +195,7 @@ static const Map<String,dynamic> _en = {
     "error_expenses": "Expense error: {0}",
     "error_balances": "Balance error: {0}",
     "add_member": "Add member",
+    "only_admin_owner": "Only founders or administrators can add members",
     "add_expense": "Add expense",
     "invite": "Invite link"
   },

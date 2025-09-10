@@ -116,6 +116,84 @@ class AppDrawer extends ConsumerWidget {
             }
           },
         ),
+        ListTile(
+          leading: const Icon(Icons.cleaning_services_outlined),
+          title: const Text('Verilerimi Sil'),
+          subtitle: const Text('Tüm kişisel verileriniz ve ilişkileriniz kaldırılır.'),
+          onTap: () async {
+            final sure = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Veriler silinsin mi?'),
+                content: const Text('Bu işlem geri alınamaz. Harcama kayıtlarındaki kişisel ilişkileriniz kaldırılacak.'),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Vazgeç')),
+                  FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Evet, sil')),
+                ],
+              ),
+            );
+            if (sure != true) return;
+
+            try {
+              final res = await Supabase.instance.client.rpc('erase_my_data').select();
+              // success snack
+              if (context.mounted) {
+                showAppSnack(ref, title: 'Tamam', message: 'Verileriniz silindi.', type: AppNotice.success);
+              }
+            } catch (e) {
+              if (context.mounted) {
+                showAppSnack(ref, title: 'Hata', message: '$e', type: AppNotice.error);
+              }
+            }
+          },
+        ),
+
+        ListTile(
+          leading: const Icon(Icons.person_off_outlined),
+          title: const Text('Hesabı Sil'),
+          subtitle: const Text('Hesabınız ve verileriniz kaldırılır, oturum kapanır.'),
+          onTap: () async {
+            final sure = await showDialog<bool>(
+              context: context,
+              builder: (ctx) => AlertDialog(
+                title: const Text('Hesap silinsin mi?'),
+                content: const Text('Bu işlem geri alınamaz. Owner olduğunuz gruplar varsa önce devretmeniz gerekebilir.'),
+                actions: [
+                  TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Vazgeç')),
+                  FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Evet, sil')),
+                ],
+              ),
+            );
+            if (sure != true) return;
+
+            try {
+              final supa = Supabase.instance.client;
+              final step = await supa.rpc('request_account_deletion').select().single();
+
+              if (step['ok'] == true) {
+                final fn = await supa.functions.invoke('delete-auth-user');
+                // Local sign-out
+                await supa.auth.signOut();
+                if (context.mounted) {
+                  showAppSnack(ref, title: 'Tamam', message: 'Hesabınız silindi.', type: AppNotice.success);
+                  Navigator.of(context).popUntil((r) => r.isFirst);
+                }
+              } else if (step['reason'] == 'TRANSFER_OWNERSHIP_REQUIRED') {
+                if (context.mounted) {
+                  showAppSnack(ref,
+                    title: 'İşlem Durduruldu',
+                    message: 'Owner olduğunuz ve başka üyeleri olan gruplar var. Önce sahipliği devredin.',
+                    type: AppNotice.error,
+                  );
+                }
+              }
+            } catch (e) {
+              if (context.mounted) {
+                showAppSnack(ref, title: 'Hata', message: '$e', type: AppNotice.error);
+              }
+            }
+          },
+        ),
       ]),
     );
   }

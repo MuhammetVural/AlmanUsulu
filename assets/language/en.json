@@ -63,6 +63,7 @@
     "error_expenses": "Expense error: {0}",
     "error_balances": "Balance error: {0}",
     "add_member": "Add member",
+    "only_admin_owner": "Only founders or administrators can add members",
     "add_expense": "Add expense",
     "invite": "Invite link"
   },
